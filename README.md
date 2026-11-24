@@ -72,7 +72,7 @@
 
 ## 已知限制
 
-- 视频壁纸直接用 Chromium 播放，H.264 / VP9 / AV1 没问题；HEVC 等编码可能放不了（原插件的 ffmpeg 转码还没移植）。
+- 视频壁纸直接用 Chromium 播放，H.264 / VP9 / AV1 没问题；HEVC 等编码可能放不了（dsh-wallpaper-engine 那种 ffmpeg 转码本项目还没做）。
 - 毛玻璃是自动识别的，个别面板可能没变透明或变得太透；用「面板不透明度」调整，或者关掉「界面毛玻璃」。
 - 只针对 Antigravity 2.x 桌面 App 测试过结构（2.34.0）；VS Code 那种 Antigravity IDE 不适用。
 
@@ -80,9 +80,20 @@
 
 壁纸、设置、日志都只在本机读写，插件不会联网上传任何东西。系统音频只在本机算成频谱，不录音；「正在播放」只读 Windows 的媒体信息。
 
-## 许可证
+## 来源与许可证
 
-- 本项目：[MIT](LICENSE)。
-- 场景渲染用的 [WebWallGL](https://github.com/oneincase/webwallgl)：MIT，见 `payload/app/LICENSE.webwallgl.txt`。
-- 思路参考 [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine)（MIT）。
-- 创意工坊壁纸的版权归各自作者，本项目不包含任何壁纸文件。
+**本项目的代码是独立编写的。** 功能思路参考了 dsh-wallpaper-engine，但没有复制它的代码：两者的结构完全不同，它是给 DSH 网页界面用的，本项目是修改 Antigravity 桌面 App 的程序包。
+
+| 组件 | 来源 | 许可证 | 说明 |
+|---|---|---|---|
+| 本项目（`install.cjs`、`autofix.ps1`、`*.cmd`、`payload/` 下除 WebWallGL 以外的文件） | 本仓库 | [MIT](LICENSE) | 独立编写 |
+| `payload/app/webwallgl.global.min.js` | [WebWallGL](https://github.com/oneincase/webwallgl)，作者 oneincase | MIT | WebWallGL 的构建文件，随本项目一起分发；许可证见 `payload/app/LICENSE.webwallgl.txt` |
+| 功能思路 | [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine)，作者 elysia395 | MIT | 只参考了功能和交互思路，没有使用它的代码 |
+
+**本仓库不包含：**
+
+- **Antigravity 的任何代码或文件。** 安装器在你自己的电脑上读取 Antigravity 的程序包，打补丁后写回；原版会先备份，卸载时原样还原。
+- **任何 Wallpaper Engine 壁纸或创意工坊素材。** 插件只读取你电脑上已经订阅的壁纸并在本机播放，版权归各自作者。
+- **任何桌宠、头像或挂件图片。** 默认角色是代码画的矢量图，其余都由你自己选择本机文件。
+
+Antigravity 是 Google 的产品，Wallpaper Engine 是 Wallpaper Engine Team 的产品，本项目与它们都没有关联。文中提到这两个名字，只是为了说明插件用在哪里、配合什么使用。
