@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="agywe-token" content="__AGYWE_TOKEN__">
+<title>壁纸设置</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div id="backdrop"></div>
+<div id="panel" role="dialog" aria-label="壁纸设置">
+  <header>
+    <div class="title">🖼 Wallpaper Engine 壁纸 <span class="ver">v__AGYWE_VERSION__</span></div>
+    <label class="switch big" title="总开关"><input type="checkbox" data-k="enabled"><span></span><b>启用</b></label>
+    <button id="close" class="icon" title="关闭 (Esc)">✕</button>
+  </header>
+  <nav>
+    <input id="sq" type="search" placeholder="🔍 搜索设置（Ctrl+F）" autocomplete="off" spellcheck="false">
+    <button data-tab="lib" class="on">壁纸库</button>
+    <button data-tab="props">壁纸配置</button>
+    <button data-tab="switch">自动切换</button>
+    <button data-tab="look">外观</button>
+    <button data-tab="pet">挂件</button>
+    <button data-tab="avatar">头像</button>
+    <button data-tab="splash">开屏</button>
+    <button data-tab="fx">特效</button>
+<button data-tab="widgets">小组件</button>
+    <button data-tab="play">播放</button>
+    <button data-tab="dirs">目录</button>
+    <button data-tab="about">关于</button>
+  </nav>
+  <main>
+    <div id="sqempty" class="muted" hidden>没有找到相关的设置，换个词试试，比如「透明」「帧率」「番茄」。</div>
+    <section id="tab-lib" class="on">
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="搜索标题 / 标签">
+        <select id="ftype">
+          <option value="">全部类型</option>
+          <option value="scene">场景 Scene</option>
+          <option value="video">视频 Video</option>
+          <option value="web">网页 Web</option>
+          <option value="custom">自定义</option>
+        </select>
+        <label class="chk"><input id="ffav" type="checkbox">只看收藏</label>
+        <label class="chk"><input id="fhidden" type="checkbox">显示已隐藏</label>
+        <button id="refresh">刷新</button>
+        <button id="addfiles" class="primary">＋ 图片/视频</button>
+      </div>
+      <div id="count" class="muted"></div>
+      <div id="effline2" class="effline"></div>
+      <div id="grid"></div>
+    </section>
+
+    <section id="tab-props">
+      <div class="curbar">
+        <div id="curthumb" class="curthumb"></div>
+        <div class="curinfo"><div id="curtitle" class="curtitle">（还没有选壁纸）</div><div id="curtype" class="muted"></div></div>
+        <button id="pausebtn">⏸ 暂停</button>
+        <button id="clearbtn" title="只是不再显示，不删除文件">清除当前壁纸</button>
+      </div>
+      <h4>这张壁纸的属性 <small class="muted">（和 Wallpaper Engine 里右侧的「属性」一样，每张壁纸单独保存）</small></h4>
+      <div id="props"></div>
+      <div class="toolbar" style="margin-top:12px"><button id="propsreset">恢复这张壁纸的默认属性</button></div>
+    </section>
+
+    <section id="tab-look">
+      <div class="row"><label>界面毛玻璃</label><label class="switch"><input type="checkbox" data-k="glass"><span></span></label><small>自动把大块面板、输入栏变成半透明 + 模糊</small></div>
+      <div class="row"><label>外观预设</label><button class="preset" data-preset="clear">通透</button><button class="preset" data-preset="frost">磨砂</button><button class="preset" data-preset="night">夜读</button><button id="exportlook">导出…</button><button id="importlook">导入…</button></div>
+      <p class="muted indent">「导出」会把外观、特效、挂件（连同挂件图片）存成一个 .json 文件，可以分享给别人或换电脑用；壁纸本身不在里面。</p>
+      <h4>主题跟随壁纸</h4>
+      <div class="row"><label>跟随壁纸取色</label><label class="switch"><input type="checkbox" data-k="themeFollow"><span></span></label><small>从当前壁纸取主色：毛玻璃色调、选中文字、光标、特效、小组件和开屏都跟着换</small></div>
+      <div class="row"><label>色调浓淡</label><input type="range" min="0" max="1" step="0.05" data-k="themeStrength"><output></output><small>0 = 只跟着明暗走，不带颜色</small></div>
+      <div class="row"><label>强调色也跟随</label><label class="switch"><input type="checkbox" data-k="themeAccent"><span></span></label><small>关掉的话只改毛玻璃色调</small></div>
+      <div class="row"><label>取到的颜色</label><span id="themeSw" class="muted"></span></div>
+      <p class="muted indent">打开后会盖过下面的「统一色调」。每次换壁纸都会重新取色。</p>
+      <h4>面板</h4>
+      <div class="row"><label>面板不透明度</label><input type="range" min="0" max="1" step="0.01" data-k="panelOpacity"><output></output></div>
+      <div class="row"><label>对话区背板</label><input type="range" min="0" max="0.9" step="0.01" data-k="contentOpacity"><output></output><small>对话 / 工作区整块垫一层磨砂，字压在花哨的壁纸上看不清就调高</small></div>
+      <div class="row"><label>气泡 / 卡片</label><input type="range" min="0" max="1" step="0.01" data-k="bubbleOpacity"><output></output><small>对话气泡、按钮这类小块的最低不透明度，太透看不清字就调高</small></div>
+      <div class="row"><label>自动保证字看得清</label><label class="switch"><input type="checkbox" data-k="autoContrast"><span></span></label><select data-k="contrastTarget" data-num="1"><option value="3">宽松（3:1）</option><option value="4.5">标准（4.5:1）</option><option value="7">严格（7:1）</option></select><small>按壁纸的明暗自动把背板调厚；只会比上面三个滑块更厚，不会更薄</small></div>
+      <div class="row tight"><label></label><small id="contrastInfo" class="muted"></small></div>
+      <div class="row"><label>模糊强度</label><input type="range" min="0" max="40" step="1" data-k="blur"><output></output></div>
+      <div class="row"><label>面板描边</label><label class="switch"><input type="checkbox" data-k="glassBorder"><span></span></label><small>面板边缘一圈细高光</small></div>
+      <div class="row"><label>统一色调</label><label class="switch"><input type="checkbox" data-k="glassTintOn"><span></span></label><input type="color" data-k="glassTint"><small>关掉时沿用 Antigravity 原本的颜色</small></div>
+      <h4>壁纸画面</h4>
+      <div class="row"><label>亮度</label><input type="range" min="0.3" max="1.8" step="0.01" data-k="wallFx.brightness"><output></output></div>
+      <div class="row"><label>对比度</label><input type="range" min="0.3" max="1.8" step="0.01" data-k="wallFx.contrast"><output></output></div>
+      <div class="row"><label>饱和度</label><input type="range" min="0" max="2.5" step="0.01" data-k="wallFx.saturate"><output></output><small>0 = 黑白</small></div>
+      <div class="row"><label>色温</label><input type="range" min="-1" max="1" step="0.02" data-k="wallFx.temp"><output></output><small>往左偏冷（蓝），往右偏暖（橙）</small></div>
+      <div class="row"><label>暗角</label><input type="range" min="0" max="1" step="0.02" data-k="wallFx.vignette"><output></output><small>四周压暗，视线集中在中间</small></div>
+      <div class="row"><label>胶片颗粒</label><input type="range" min="0" max="1" step="0.02" data-k="wallFx.grain"><output></output><small>低配模式下颗粒不动</small></div>
+      <div class="row"><label>扫描线</label><input type="range" min="0" max="1" step="0.02" data-k="wallFx.scan"><output></output><small>老显示器的横纹</small></div>
+      <p class="muted indent">只改插件铺在界面后面的壁纸，所有壁纸共用一套。每一项右边的「↺」可以单独恢复。</p>
+      <h4>对话区</h4>
+      <div class="row"><label>回到顶部 / 到底部</label><label class="switch"><input type="checkbox" data-k="jumpBtns"><span></span></label><small>对话很长、往上翻了一段时，右下角出现 ↑ ↓ 两个小按钮</small></div>
+      <div class="row"><label>输入框字数</label><label class="switch"><input type="checkbox" data-k="charCount"><span></span></label><small>打字时输入框右上角显示「N 字 · M 行」，不算空格；代码编辑器和终端里不显示</small></div>
+      <div class="row"><label>手动调整区域</label><button id="pickglass" class="primary">点选界面区域…</button><button id="pickreset">清除手动调整</button><small id="pickinfo" class="muted"></small></div>
+      <p class="muted indent">自动识别漏掉或者多处理了某一块（比如输入栏、工作区）时用：点「点选界面区域」，在界面上点那一块就能加上 / 去掉毛玻璃，可以连续点，右键或 Esc 结束。</p>
+      <div class="row"><label>壁纸压暗 / 提亮</label><input type="range" min="0" max="0.9" step="0.01" data-k="dim"><output></output>
+        <select data-k="dimMode"><option value="auto">自动（跟随文字颜色）</option><option value="darken">压暗</option><option value="lighten">提亮</option></select></div>
+      <p class="muted indent">「自动」：界面是深色字就把壁纸提亮，浅色字就压暗，让字和壁纸拉开对比。</p>
+      <div class="row"><label>文字描边</label><label class="switch"><input type="checkbox" data-k="textShadow"><span></span></label>
+        <select data-k="haloColor"><option value="auto">自动（和文字反色）</option><option value="light">白色</option><option value="dark">黑色</option></select><small>字看不清时打开</small></div>
+      <div class="row"><label>描边强度</label><input type="range" min="0" max="1" step="0.01" data-k="textHalo"><output></output></div>
+      <div class="row"><label>界面字体</label><input type="text" data-k="font" placeholder="留空 = 默认；例如 &quot;HarmonyOS Sans SC&quot;, &quot;Microsoft YaHei UI&quot;" class="wide"></div>
+      <div class="row"><label>切换动画</label>
+        <select data-k="transition"><option value="fade">淡入淡出</option><option value="zoom">缩放</option><option value="blur">模糊过渡</option><option value="slide">滑入</option><option value="none">无</option></select>
+        <input type="range" min="0.2" max="3" step="0.1" data-k="transitionSec"><output></output><small>秒；换壁纸、自动轮播时用</small></div>
+      <div class="row"><label>鼠标视差</label><input type="range" min="0" max="1" step="0.01" data-k="parallax"><output></output><small>视频 / 图片 / 网页壁纸跟着鼠标轻微移动（场景壁纸用它自带的视差）；需要打开「播放」里的鼠标交互</small></div>
+      <div class="row"><label>适配方式</label>
+        <select data-k="fit"><option value="cover">填满裁切</option><option value="contain">完整显示</option><option value="stretch">拉伸</option></select></div>
+      <div class="row"><label>Agent 运行时</label>
+        <select data-k="agentFx"><option value="glow">边缘呼吸光</option><option value="brighten">壁纸变亮</option><option value="none">无效果</option></select></div>
+      <div class="row"><label>透明标题栏</label><label class="switch"><input type="checkbox" data-k="transparentTitleBar"><span></span></label><small>实验：窗口右上角按钮区透明，下次切换主题后生效</small></div>
+    </section>
+
+    <section id="tab-pet">
+      <div class="petpreview"><div class="petcord"></div><div id="petimg" class="petimg"></div></div>
+      <div class="row"><label>显示挂件</label><label class="switch"><input type="checkbox" data-k="showButton"><span></span></label><small>隐藏后用 Ctrl+Alt+W 打开设置</small></div>
+      <div class="row"><label>角色图片</label><button id="petpick" class="primary">选择图片…</button><button id="petfromui">从界面上点选</button><button id="petreset">用默认角色</button><small id="petpath" class="muted"></small></div>
+      <p class="muted indent">「选择图片…」：直接选桌宠的图片文件，GIF / APNG / WebP 动图会动起来，透明背景的 PNG 效果最好。<br>「从界面上点选」：桌宠是画在 Antigravity 窗口里面的话，点它一下就能直接拿来用。</p>
+      <div id="petfound" class="muted indent"></div>
+      <h4>换装</h4>
+      <div id="outfits" class="outfits"></div>
+      <div class="row wrap"><label>衣柜</label><button id="outfitSave" class="primary">把现在这身存起来</button><button id="outfitAdd">添加图片…</button><small id="outfitMsg">点一套就换上；双击名字可以改名；最多 30 套</small></div>
+      <div class="row"><label>按时间换装</label><label class="switch"><input type="checkbox" id="outfitRuleOn"><span></span></label><small>到点自动换上；中间手动换的会保持到下一个时间点</small></div>
+      <div id="outfitSlots"></div>
+      <div class="row wrap"><label></label><input type="time" id="outfitAt" value="08:00"><select id="outfitSel"></select><button id="outfitSlotAdd">添加时间点</button></div>
+      <h4>不同状态换装</h4>
+      <div id="moodOutfits"></div>
+      <p class="muted indent">只是临时换上，状态过去就换回原来的；衣柜里先存几套才能选。比如完成时换一张开心的图、出错时换一张哭脸。</p>
+      <div class="row"><label>大小</label><input type="range" min="32" max="200" step="1" data-k="pet.size"><output></output></div>
+      <div class="row"><label>绳子长度</label><input type="range" min="0" max="240" step="1" data-k="pet.cord"><output></output></div>
+      <p class="muted indent">用法：点一下挂件，或者抓住它往下拉一段再松手，就会打开这个设置面板；左右拖动可以挪位置。有 agent 在跑的时候它会晃得更欢。</p>
+      <h4>Agent 状态提示</h4>
+      <div class="row"><label>状态提示</label><label class="switch"><input type="checkbox" data-k="agentMood"><span></span></label><small>完成时跳一下、冒绿色气泡；需要你确认或出错时换颜色，一直提示到你点掉</small></div>
+      <div class="row"><label>显示运行时长</label><label class="switch"><input type="checkbox" data-k="agentTimer"><span></span></label><small>agent 在跑的时候挂件下面显示 ⏱ 已经跑了多久，完成时气泡里说用了多久、是哪个对话</small></div>
+      <div class="row"><label>任务栏闪烁提醒</label><label class="switch"><input type="checkbox" data-k="flashOnDone"><span></span></label><small>Antigravity 不在前台时，完成 / 需要确认 / 出错会让任务栏图标闪，点回窗口就停</small></div>
+      <div class="row"><label>完成时说</label><input type="text" data-k="moodText.done" class="wide"></div>
+      <div class="row"><label>需要确认时说</label><input type="text" data-k="moodText.attention" class="wide"></div>
+      <div class="row"><label>出错时说</label><input type="text" data-k="moodText.error" class="wide"></div>
+      <div class="row"><label>试一下</label><button data-moodtest="done">完成</button><button data-moodtest="attention">需要确认</button><button data-moodtest="error">出错</button><small>会先关掉设置面板再演示</small></div>
+      <p class="muted indent">提示出现时点一下挂件或气泡就能点掉。壁纸边缘也会跟着闪对应的颜色（「外观」里的「Agent 运行时」选「无效果」可以关掉）。</p>
+      <h4>闲置小动作</h4>
+      <div class="row"><label>闲置小动作</label><label class="switch"><input type="checkbox" data-k="petIdle.on"><span></span></label><small>没事的时候伸懒腰、东张西望、转个圈；有 agent 在跑或有提示时不打扰</small></div>
+      <div class="row"><label>频率</label><select data-k="petIdle.freq"><option value="low">偶尔</option><option value="mid">适中</option><option value="high">活泼</option></select></div>
+      <div class="row"><label>眼睛跟着鼠标</label><label class="switch"><input type="checkbox" data-k="petIdle.follow"><span></span></label><small>鼠标靠近时会朝你那边看</small></div>
+      <div class="row"><label>多久没动就睡觉</label><input type="range" min="0" max="30" step="1" data-k="petIdle.sleepMin"><output></output><small>分钟；0 = 不睡。睡着时头上冒 Zzz，你一动它就醒；专注计时中不睡</small></div>
+      <div class="row"><label>醒来打招呼</label><label class="switch"><input type="checkbox" data-k="petIdle.greet"><span></span></label><small>按时间说「早上好」「夜深了」之类，最多 20 分钟一次</small></div>
+      <div class="row"><label>偶尔说句话</label><label class="switch"><input type="checkbox" data-k="petIdle.chatter"><span></span></label><small>从下面随机挑一句，一行一句，至少隔一分半</small></div>
+      <div class="row"><label></label><textarea data-k="petIdle.lines" rows="5" class="wide"></textarea></div>
+      <div class="row wrap"><label>试一下</label><button data-idletest="stretch">伸懒腰</button><button data-idletest="look">东张西望</button><button data-idletest="spin">转圈</button><button data-idletest="hop">蹦一下</button><button data-idletest="peek">缩一下</button><button data-idletest="chat">说句话</button><button data-idletest="greet">打招呼</button><button data-idletest="sleep">睡觉</button></div>
+      <h4>提醒</h4>
+      <div class="row"><label>喝水提醒</label><select data-k="remind.water" data-num="1"><option value="0">关</option><option value="30">每 30 分钟</option><option value="45">每 45 分钟</option><option value="60">每 1 小时</option><option value="90">每 1.5 小时</option></select><small>挂件冒个气泡提醒你；5 分钟没碰电脑会重新计时</small></div>
+      <div class="row"><label>起来活动</label><select data-k="remind.move" data-num="1"><option value="0">关</option><option value="30">每 30 分钟</option><option value="45">每 45 分钟</option><option value="60">每 1 小时</option><option value="90">每 1.5 小时</option><option value="120">每 2 小时</option></select><small>番茄钟计时的时候不提醒（它自己会叫你休息）</small></div>
+      <div class="row"><label>不在前台时弹通知</label><label class="switch"><input type="checkbox" data-k="remind.notify"><span></span></label><small>Antigravity 被别的窗口盖住时，喝水 / 活动提醒也弹一条 Windows 通知</small></div>
+      <div class="row"><label>整点报时</label><label class="switch"><input type="checkbox" data-k="chime.on"><span></span></label><small>每到整点挂件说一声「下午 3 点啦」</small></div>
+      <div class="row wrap"><label>报时时段</label><span>从</span><input type="number" min="0" max="23" data-k="chime.from" data-num="1"><span>点到</span><input type="number" min="0" max="23" data-k="chime.to" data-num="1"><span>点</span><label class="chk"><input type="checkbox" data-k="chime.sound">报时声音</label></div>
+      <div class="row wrap"><label>试一下</label><button data-caretest="water">喝水</button><button data-caretest="move">起来活动</button><button data-caretest="chime">报时</button></div>
+      <h4>互动</h4>
+      <div class="row"><label>摸头</label><label class="switch"><input type="checkbox" data-k="petPat"><span></span></label><small>鼠标在挂件头上左右来回划几下（不用按住），它会开心地冒爱心；睡着时会被摸醒</small></div>
+      <h4>挂件快捷操作</h4>
+      <div class="row"><label>滚轮换壁纸</label><label class="switch"><input type="checkbox" data-k="petWheel"><span></span></label><small>鼠标停在挂件上滚轮：往下是下一张，往上是上一张</small></div>
+      <p class="muted indent">右键挂件会弹出菜单：换壁纸、快速切换、收藏、番茄钟、暂停壁纸、打开设置。</p>
+    </section>
+
+    <section id="tab-avatar">
+      <div class="row"><label>会话头像</label><label class="switch"><input type="checkbox" data-k="avatarsOn"><span></span></label><small>你发的消息右边、agent 的回复左边各放一个头像</small></div>
+      <div class="avrow">
+        <div class="avcard"><div id="avprev-user" class="avprev"></div><b>你</b>
+          <div class="avbtns"><button data-avpick="user" class="primary">选择图片…</button><button data-avpet="user">用挂件</button><button data-avreset="user">默认</button></div>
+          <div class="row tight"><label>默认头像文字</label><input type="text" data-k="avatarUserText" maxlength="4" style="width:70px"></div>
+          <small id="avpath-user" class="muted"></small></div>
+        <div class="avcard"><div id="avprev-agent" class="avprev"></div><b>Agent</b>
+          <div class="avbtns"><button data-avpick="agent" class="primary">选择图片…</button><button data-avpet="agent">用挂件</button><button data-avreset="agent">默认</button></div>
+          <small id="avpath-agent" class="muted"></small></div>
+      </div>
+      <div class="row"><label>大小</label><input type="range" min="20" max="72" step="1" data-k="avatarSize"><output></output></div>
+      <div class="row"><label>形状</label><select data-k="avatarShape"><option value="circle">圆形</option><option value="rounded">圆角方形</option><option value="none">无边框（适合透明立绘）</option></select></div>
+      <p class="muted indent">Agent 头像默认用挂件的图片，也就是你的桌宠；agent 正在回复时它会一闪一闪。长回复往下滚时头像会跟着停在顶部。窗口太窄、两边放不下的时候会自动不显示。</p>
+    </section>
+
+    <section id="tab-splash">
+      <div class="row"><label>开屏动画</label><label class="switch"><input type="checkbox" data-k="splash.enabled"><span></span></label><button id="splashPreview" class="primary">▶ 立即预览</button><small>打开 Antigravity 时播放，界面和壁纸准备好后揭开；点一下或按 Esc 随时跳过</small></div>
+      <div class="row"><label>样式</label><select data-k="splash.style"><option value="pet">挂件登场</option><option value="curtain">壁纸揭幕</option><option value="minimal">极简</option><option value="media">自定义视频 / 动图</option></select></div>
+      <p class="muted indent" id="splashTip"></p>
+      <div class="row"><label>视频 / 动图</label><button id="splashMedia">选择文件…</button><button id="splashMediaReset">清除</button><small id="splashMediaPath" class="muted"></small></div>
+      <div class="row"><label>视频声音</label><label class="switch"><input type="checkbox" data-k="splash.mediaSound"><span></span></label><select data-k="splash.mediaFit"><option value="cover">填满裁切</option><option value="contain">完整显示</option></select></div>
+      <h4>文字</h4>
+      <div class="row"><label>问候语</label><input type="text" data-k="splash.greeting" class="wide"></div>
+      <div class="row"><label>你的称呼</label><input type="text" data-k="splash.name" class="wide" placeholder="留空就只说「晚上好」"></div>
+      <div class="row"><label>副标题</label><input type="text" data-k="splash.sub" class="wide"></div>
+      <p class="muted indent">可以用：{greet} 早上好 / 晚上好…　{name} 你的称呼　{date} 11月24日　{weekday} 星期二　{time} 04:58</p>
+      <div class="row"><label>每日一句</label><label class="switch"><input type="checkbox" data-k="splash.showQuote"><span></span></label><small>每次从下面随机挑一句，一行一句</small></div>
+      <div class="row"><label></label><textarea data-k="splash.quotes" rows="5" class="wide"></textarea></div>
+      <h4>时机与配色</h4>
+      <div class="row"><label>至少显示</label><input type="range" min="0.5" max="6" step="0.1" data-k="splash.minSec"><output></output><small>秒；界面早就准备好了，也让动画播完这么久</small></div>
+      <div class="row"><label>最长等待</label><input type="range" min="2" max="30" step="0.5" data-k="splash.maxSec"><output></output><small>秒；壁纸再慢也不会挡着你超过这个时间</small></div>
+      <div class="row"><label>每天只播一次</label><label class="switch"><input type="checkbox" data-k="splash.onceADay"><span></span></label><small>当天第一次打开时播，之后直接进</small></div>
+      <div class="row"><label>配色</label><select data-k="splash.theme"><option value="auto">跟随系统</option><option value="dark">深色</option><option value="light">浅色</option></select><input type="color" data-k="splash.accent"><small>强调色：星光、进度条、极简样式的标志</small></div>
+      <div class="row"><label>衔接自带加载画面</label><label class="switch"><input type="checkbox" data-k="splash.matchNative"><span></span></label><small>把 Antigravity 自己那个跳动的 A 也染成开屏的配色，两段之间不闪</small></div>
+    </section>
+
+    <section id="tab-fx">
+      <div class="row"><label>点击特效</label>
+        <select data-k="clickFx"><option value="none">关</option><option value="ripple">波纹</option><option value="sparkle">星光</option><option value="petal">花瓣</option><option value="heart">爱心</option></select></div>
+      <div class="row"><label>鼠标拖尾</label>
+        <select data-k="trailFx"><option value="none">关</option><option value="glow">光带</option><option value="comet">彗星</option><option value="sparkle">星屑</option></select></div>
+      <div class="row"><label>特效颜色</label><input type="color" data-k="fxColor"><label class="chk"><input type="checkbox" data-k="fxRainbow">彩虹色</label></div>
+      <div class="row"><label>完成时撒彩纸</label><label class="switch"><input type="checkbox" data-k="doneConfetti"><span></span></label><small>agent 完成任务时从挂件那里炸开一把彩纸；低配模式下不撒</small></div>
+      <p class="muted indent">特效画在界面最上层，但不会挡住鼠标点击；没有动画的时候不占资源。</p>
+      <h4>打字特效</h4>
+      <div class="row"><label>打字时</label><select data-k="typeFx"><option value="none">关</option><option value="spark">火花</option><option value="confetti">彩纸</option><option value="heart">爱心</option><option value="char">字飘起来</option></select><small>在输入框里打字时从光标处冒出来，颜色用上面的特效颜色</small></div>
+      <div class="row"><label>输入栏轻震</label><label class="switch"><input type="checkbox" data-k="typeShake"><span></span></label><small>每打一个字输入栏轻轻抖一下</small></div>
+      <div class="row"><label>连击计数</label><label class="switch"><input type="checkbox" data-k="typeCombo"><span></span></label><small>光标旁边显示 ×N，停手 1.6 秒清零，每 50 连击挂件夸你一句</small></div>
+      <div class="row"><label>代码 / 终端里也放</label><label class="switch"><input type="checkbox" data-k="typeFxCode"><span></span></label><small>默认关：在代码编辑器、终端里打字时不放特效、不震、不计连击，免得干扰写代码</small></div>
+      <h4>音效</h4>
+      <div class="row"><label>音效</label><label class="switch"><input type="checkbox" data-k="sfx.on"><span></span></label><small>全部现场合成，不带音频文件</small></div>
+      <div class="row"><label>音量</label><input type="range" min="0" max="1" step="0.01" data-k="sfx.volume"><output></output></div>
+      <div class="row"><label>音色</label><select data-k="sfx.pack"><option value="soft">柔和</option><option value="crisp">清脆</option><option value="retro">8-bit</option></select></div>
+      <div class="row wrap"><label>哪些时候响</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.done">agent 完成</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.attention">需要确认</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.error">出错</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.pomo">番茄钟</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.wall">换壁纸</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.pet">点挂件</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.ui">按钮 / 菜单</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.typing">打字声</label>
+        <label class="chk"><input type="checkbox" data-k="sfx.remind">喝水 / 活动提醒</label></div>
+      <div class="row wrap"><label>试听</label><button data-sfxtest="done">完成</button><button data-sfxtest="attention">需要确认</button><button data-sfxtest="error">出错</button><button data-sfxtest="pomo">专注结束</button><button data-sfxtest="pomo" data-kind="break">休息结束</button><button data-sfxtest="wall">换壁纸</button><button data-sfxtest="pet">点挂件</button><button data-sfxtest="typing">打字</button></div>
+    </section>
+
+    <section id="tab-widgets">
+      <h4>今日统计</h4>
+      <div id="stats" class="stats"></div>
+      <p class="muted indent">只在本机统计：agent 完成 / 需要确认 / 出错的次数、一共跑了多久、番茄钟。右键挂件「今天做了多少」也能看。</p>
+      <h4>待办和便签</h4>
+      <div class="row"><label>待办清单</label><label class="switch"><input type="checkbox" data-k="widgets.todo"><span></span></label><small>回车添加，点圆圈打勾，双击改字；最多 50 条</small></div>
+      <div class="row"><label>便签</label><label class="switch"><input type="checkbox" data-k="widgets.note"><span></span></label><small>随手记，自动保存；每个窗口看到的是同一份</small></div>
+      <h4>日历 / 系统占用 / 倒数日</h4>
+      <div class="row"><label>日历</label><label class="switch"><input type="checkbox" data-k="widgets.calendar"><span></span></label><small>本月日历，‹ › 翻月，点标题回到这个月；倒数日的日子会标个小红点</small></div>
+      <div class="row"><label>系统占用</label><label class="switch"><input type="checkbox" data-k="widgets.sys"><span></span></label><small>CPU、内存，以及 Antigravity 自己占了多少内存，两秒刷新一次（显卡占用读不到）</small></div>
+      <div class="row"><label>倒数日</label><label class="switch"><input type="checkbox" data-k="widgets.countdown"><span></span></label><small>显示最近的 5 个日子，过去 30 天内的也会显示「N 天前」</small></div>
+      <div id="cdList"></div>
+      <div class="row wrap"><label>添加日子</label><input type="text" id="cdName" placeholder="名字，比如「春节」" maxlength="24"><input type="date" id="cdDate"><label class="chk"><input type="checkbox" id="cdYearly">每年</label><button id="cdAdd" class="primary">添加</button><small id="cdMsg" class="muted"></small></div>
+      <h4>时钟</h4>
+      <div class="row"><label>显示时钟</label><label class="switch"><input type="checkbox" data-k="clock.show"><span></span></label><small>和播放器、番茄钟叠在一起，按住空白处可以拖到任意位置</small></div>
+      <div class="row"><label>显示秒</label><label class="switch"><input type="checkbox" data-k="clock.seconds"><span></span></label></div>
+      <div class="row"><label>显示日期</label><label class="switch"><input type="checkbox" data-k="clock.date"><span></span></label></div>
+      <div class="row"><label>12 小时制</label><label class="switch"><input type="checkbox" data-k="clock.h12"><span></span></label><small>显示成「下午 3:05」</small></div>
+      <h4>迷你播放器</h4>
+      <div class="row"><label>迷你播放器</label><select data-k="miniPlayer"><option value="card">卡片</option><option value="pill">小胶囊</option><option value="off">关</option></select><small>显示正在放的歌，带上一首 / 暂停 / 下一首；双击卡片在两种样式之间切换</small></div>
+      <div class="row"><label>没放歌时隐藏</label><label class="switch"><input type="checkbox" data-k="miniHideIdle"><span></span></label></div>
+      <p class="muted indent" id="npnote"></p>
+      <h4>番茄钟</h4>
+      <div class="row wrap"><label>番茄钟卡片</label><select data-k="pomo.show"><option value="auto">计时的时候显示</option><option value="always">一直显示</option><option value="off">不用番茄钟</option></select><button data-pomo="start" class="primary">▶ 开始专注</button><button data-pomo="pause">⏸ 暂停</button><button data-pomo="reset">重置</button></div>
+      <div class="row wrap"><label>时长</label><span>专注</span><input type="number" min="1" max="180" data-k="pomo.work" data-num="1"><span>分钟　短休息</span><input type="number" min="1" max="60" data-k="pomo.short" data-num="1"><span>分钟</span></div>
+      <div class="row wrap"><label>长休息</label><input type="number" min="1" max="90" data-k="pomo.long" data-num="1"><span>分钟，每</span><input type="number" min="1" max="12" data-k="pomo.every" data-num="1"><span>个专注之后来一次</span></div>
+      <div class="row"><label>自动开始下一段</label><label class="switch"><input type="checkbox" data-k="pomo.autoNext"><span></span></label><small>关掉的话，到点后等你点「开始」</small></div>
+      <div class="row"><label>休息提醒</label><label class="switch"><input type="checkbox" data-k="pomo.overlay"><span></span></label><small>专注结束时界面蒙一层磨砂、显示休息倒计时，可以跳过或收起（Esc）</small></div>
+      <div class="row"><label>挂件上显示倒计时</label><label class="switch"><input type="checkbox" data-k="pomo.badge"><span></span></label></div>
+      <div class="row"><label>系统通知</label><label class="switch"><input type="checkbox" data-k="pomo.notify"><span></span></label><small>Antigravity 不在前台时弹一条 Windows 通知</small></div>
+      <div class="row"><label>专注结束时说</label><input type="text" data-k="pomo.workEndText" class="wide"></div>
+      <div class="row"><label>休息结束时说</label><input type="text" data-k="pomo.breakEndText" class="wide"></div>
+      <h4>白噪音</h4>
+      <div class="row wrap"><label>声音</label><select data-k="noise.type"><option value="rain">🌧 雨声</option><option value="wave">🌊 海浪</option><option value="fire">🔥 篝火</option><option value="stream">💧 溪流</option><option value="fan">🌀 风扇</option></select><button id="noisePlay" class="primary">▶ 播放</button><small id="noiseInfo" class="muted">全部现场合成，不带音频文件；右键挂件也能开关</small></div>
+      <div class="row"><label>音量</label><input type="range" min="0" max="1" step="0.01" data-k="noise.volume"><output></output></div>
+      <div class="row"><label>专注时自动放</label><label class="switch"><input type="checkbox" data-k="noise.withPomo"><span></span></label><small>番茄钟专注开始时自动放，暂停、休息、重置时自动停（你自己手动开的不会被停掉）</small></div>
+      <p class="muted indent">也可以按 Ctrl+Alt+P 开始 / 暂停，或者右键挂件。番茄钟和播放器叠在一起，按住空白处可以拖到任意位置。</p>
+      <h4>快捷切换壁纸</h4>
+      <div class="row"><label>快速切换面板</label><button id="openquick" class="primary">打开（Ctrl+Alt+Q）</button><small>底部弹出一排缩略图：←→ 选，回车换上，打字筛选，右键收藏</small></div>
+      <div class="row"><label>上一张 / 下一张</label><select data-k="quickPool"><option value="favorites">在收藏里切（收藏少于 2 张时用全部）</option><option value="all">在全部壁纸里切</option></select></div>
+      <h4>快捷键</h4>
+      <div id="hotkeys"></div>
+      <p class="muted indent">点右边的按键框，再按新的组合键；Esc 取消，Backspace 清空（不用这个快捷键）。至少要两个修饰键（Ctrl / Alt / Shift / Win），或者 F 键加一个修饰键。<span id="hkScan"></span></p>
+      <p class="muted indent">鼠标停在挂件上滚轮也能换（「挂件」页可以关）。在规则（按时间 / 按项目）生效时手动换，会临时盖过规则，到下一次切换为止。</p>
+    </section>
+
+    <section id="tab-play">
+      <div class="row"><label>低配模式</label><label class="switch"><input type="checkbox" data-k="lowSpec"><span></span></label><small>一键省性能：关掉点击 / 拖尾 / 打字特效、毛玻璃模糊（保留半透明）、挂件小动作和视差；壁纸帧率最多 30、粒子和后处理降到低、分辨率最多 1x。关掉就恢复你原来的设置</small></div>
+      <div class="row"><label>帧率上限</label>
+        <select data-k="fps" data-num="1"><option value="15">15</option><option value="24">24</option><option value="30">30</option><option value="45">45</option><option value="60">60</option><option value="120">120</option></select><small>越低越省电</small></div>
+      <div class="row"><label>渲染分辨率</label>
+        <select data-k="renderDpr" data-num="1"><option value="0">跟随屏幕</option><option value="0.5">0.5x（最省）</option><option value="0.75">0.75x</option><option value="1">1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></div>
+      <div class="row"><label>粒子质量</label>
+        <select data-k="particles"><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></div>
+      <div class="row"><label>后处理</label>
+        <select data-k="postProcessing"><option value="high">高</option><option value="medium">中</option><option value="low">低</option><option value="off">关</option></select></div>
+      <div class="row"><label>音量</label><input type="range" min="0" max="1" step="0.01" data-k="volume"><output></output></div>
+      <div class="row"><label>视频播放速度</label><input type="range" min="0.25" max="2" step="0.05" data-k="videoRate"><output></output><small>只对视频壁纸有效；调慢一点更安静、更省电</small></div>
+      <div class="row"><label>鼠标交互</label><label class="switch"><input type="checkbox" data-k="mouse"><span></span></label><small>视差、点击特效</small></div>
+      <div class="row"><label>失去焦点时暂停</label><label class="switch"><input type="checkbox" data-k="pauseOnBlur"><span></span></label><small>窗口最小化/被遮住时总会暂停</small></div>
+      <div class="row"><label>不在前台时帧率</label><select data-k="blurFps" data-num="1"><option value="0">不变</option><option value="24">降到 24</option><option value="15">降到 15</option><option value="10">降到 10</option></select><small>切到别的程序时壁纸还在动，只是慢一点，更省显卡；点进 Antigravity 自带的浏览器不算切走</small></div>
+      <div class="row"><label>运行壁纸脚本</label><label class="switch"><input type="checkbox" data-k="scripts"><span></span></label><small>SceneScript；关掉更安全但部分壁纸会不动</small></div>
+      <h4>省电与隐藏</h4>
+      <div class="row wrap"><label>用电池时</label><select data-k="battery.mode"><option value="fps">降低帧率</option><option value="pause">暂停壁纸</option><option value="none">不变</option></select><select data-k="battery.fps" data-num="1"><option value="10">降到 10 帧</option><option value="15">降到 15 帧</option><option value="24">降到 24 帧</option><option value="30">降到 30 帧</option></select><small>笔记本拔掉电源时自动生效，插上恢复；视频壁纸降不了帧率，会照常播放</small></div>
+      <div class="row"><label>一键隐藏</label><small>按 Ctrl+Alt+H 临时关掉壁纸、毛玻璃、挂件和小组件，变回原版界面，截图、开会时用；再按一次恢复。右键挂件也有。</small></div>
+      <div id="powerinfo" class="muted indent"></div>
+      <h4>打字时专注</h4>
+      <div class="row"><label>打字时壁纸</label><select data-k="focusMode"><option value="none">不变</option><option value="dim">变暗 / 变淡</option><option value="blur">变模糊</option><option value="pause">暂停</option></select><small>在输入框里打字时生效</small></div>
+      <div class="row"><label>强度</label><input type="range" min="0.1" max="1" step="0.05" data-k="focusStrength"><output></output></div>
+      <div class="row"><label>停手后恢复</label><input type="range" min="0.5" max="10" step="0.5" data-k="focusDelay"><output></output><small>秒</small></div>
+      <h4>系统联动</h4>
+      <div class="row"><label>系统音频频谱</label><label class="switch"><input type="checkbox" data-k="systemAudio"><span></span></label><small>音乐可视化类壁纸跟着电脑正在播放的声音动（只取频谱，不录音、不录麦克风）</small></div>
+      <div class="row"><label>正在播放</label><label class="switch"><input type="checkbox" data-k="nowPlaying"><span></span></label><small>把网易云 / QQ 音乐 / 浏览器等正在放的歌名、封面传给支持的壁纸</small></div>
+      <div id="livestatus" class="muted indent"></div>
+      <h4>自动轮播</h4>
+      <div class="row"><label>启用轮播</label><label class="switch"><input type="checkbox" data-k="rotate.enabled"><span></span></label></div>
+      <div class="row"><label>间隔（分钟）</label><input type="number" min="1" max="1440" data-k="rotate.minutes" data-num="1"></div>
+      <div class="row"><label>顺序</label><select data-k="rotate.order"><option value="sequential">顺序</option><option value="random">随机</option></select></div>
+      <div class="row"><label>范围</label><select data-k="rotate.pool"><option value="favorites">收藏（没有收藏时用全部）</option><option value="all">全部</option></select></div>
+    </section>
+
+    <section id="tab-dirs">
+      <p class="muted">自动从注册表和 Steam 库里找 Wallpaper Engine。找不到的话可以手动添加目录（单个壁纸项目，或包含多个项目的文件夹，比如 <code>...\steamapps\workshop\content\431960</code>）。</p>
+      <div id="paths"></div>
+      <h4>手动添加的目录</h4>
+      <div id="extra"></div>
+      <button id="addfolder" class="primary">＋ 添加目录</button>
+      <h4>自定义图片 / 视频</h4>
+      <div id="customs"></div>
+    </section>
+
+    <section id="tab-switch">
+      <div id="effline" class="effline"></div>
+      <div id="selline" class="muted"></div>
+      <h4>按时间</h4>
+      <div class="row"><label>启用</label><label class="switch"><input type="checkbox" id="schOn"><span></span></label><small>到了设定的时间点自动换成对应的壁纸</small></div>
+      <div id="slots"></div>
+      <div class="toolbar"><input type="time" id="slotAt" value="07:00"><select id="slotDays"><option value="">每天</option><option value="weekday">只在工作日（周一到周五）</option><option value="weekend">只在周末</option></select><button id="slotAdd" class="primary">＋ 从这个时间开始用「当前选中的壁纸」</button></div>
+      <p class="muted">比如 07:00 一张白天的、19:00 一张夜晚的。还没到当天第一个时间点时，沿用前一天最后一个。每个时间点可以只在工作日或周末生效，比如工作日 09:00 用安静的、周末 09:00 用热闹的（法定节假日调休不会自动识别）。</p>
+      <h4>按项目 / 对话</h4>
+      <div id="ctxline" class="muted"></div>
+      <div class="toolbar"><button id="bindConv" class="primary">把「当前选中的壁纸」绑定到这个对话</button><button id="bindProj">绑定到这个项目</button></div>
+      <div id="binds"></div>
+      <p class="muted">优先级：对话绑定 &gt; 项目绑定 &gt; 按时间 &gt; 壁纸库里选的（含自动轮播）。规则生效时在壁纸库里手动点一张，会临时盖过规则，到下一次切换（换对话、到下一个时间点）为止。</p>
+    </section>
+
+    <section id="tab-about">
+      <h4>自动重装</h4>
+      <div class="row"><label>更新后自动装回</label><label class="switch"><input type="checkbox" data-k="autoFix"><span></span></label><small>Antigravity 自动更新会把插件冲掉，打开后会自己装回去</small></div>
+      <div class="row"><label>更新完立刻装回</label><label class="switch"><input type="checkbox" data-k="autoFixRestart"><span></span></label><small>更新器重新打开 Antigravity 后，自动关掉它、装回插件、再打开（只在刚更新完的两分半钟内）；关掉的话，等你下次退出时再装</small></div>
+      <div id="autofixinfo" class="muted indent"></div>
+      <h4>备份</h4>
+      <div class="row wrap"><label>完整备份</label><button id="backupExport" class="primary">导出完整备份…</button><button id="backupImport">从备份恢复…</button><small id="backupInfo" class="muted"></small></div>
+      <p class="muted indent">备份里有所有设置、收藏、规则、衣柜、待办便签，挂件 / 头像 / 衣服 / 开屏用的图片也会一起放进去。壁纸文件本身不在里面（创意工坊的壁纸换电脑后重新订阅就行）。恢复前会自动把现在的设置另存一份。</p>
+      <h4>自检</h4>
+      <div class="row wrap"><label>自检</label><button id="selfRun" class="primary">开始自检</button><button id="selfNotify">发一条测试通知</button><button data-sfxtest="done">试听音效</button><small class="muted">一项项检查壁纸、显卡、系统音频、正在播放、通知、快捷键</small></div>
+      <div id="selftest" class="selftest"></div>
+      <h4>出问题时</h4>
+      <div class="row wrap"><label>诊断报告</label><button id="diagQuick" class="primary">导出到插件文件夹</button><button id="diagExport">另存为…</button><small id="diagInfo" class="muted"></small></div>
+      <p class="muted indent">报告是一个 txt，里面有版本、设置（不含图片）、最近的日志和毛玻璃报告。不含对话正文，但会带上对话标题和界面上的一些短文字。效果不对时导出一份告诉我，比截图好查。</p>
+      <div class="row"><label>安全模式</label><label class="switch"><input type="checkbox" data-k="safeMode.auto"><span></span></label><small>连续两次没能正常启动时，下次先不加载壁纸和插件界面，保证 Antigravity 能用；左下角会有提示和「恢复」按钮</small></div>
+      <div class="row"><label></label><button id="safeTest">试一下安全模式</button><small id="safeInfo" class="muted"></small></div>
+      <h4>版本</h4>
+      <div id="about"></div>
+      <p>场景渲染：<a href="https://github.com/oneincase/webwallgl" target="_blank">WebWallGL</a>（MIT）。参考：<a href="https://github.com/elysia395/dsh-wallpaper-engine" target="_blank">dsh-wallpaper-engine</a>（MIT）。</p>
+      <p class="muted">工坊壁纸版权归原作者，只在本机读取，不会上传。</p>
+      <p class="muted">卸载：完全退出 Antigravity，运行插件文件夹里的 <code>uninstall.cmd</code>。Antigravity 自动更新后插件会失效，重新运行 <code>install.cmd</code> 即可。</p>
+      <button id="openconfig">打开配置文件夹</button>
+    </section>
+  </main>
+</div>
+<script src="settings.js"></script>
+</body>
+</html>

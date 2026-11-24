@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="agywe-token" content="__AGYWE_TOKEN__">
+<title>agywe wallpaper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  #stage { position: fixed; inset: 0; }
+  .layer { position: absolute; inset: 0; opacity: 0; will-change: transform, opacity;
+    transition: opacity var(--tr, .9s) ease, filter var(--tr, .9s) ease, scale var(--tr, .9s) ease, translate var(--tr, .9s) cubic-bezier(.2,.8,.2,1); }
+  .layer.show { opacity: 1; }
+  body.tr-none .layer { transition: none; }
+  body.tr-zoom .layer:not(.show) { scale: 1.08; }
+  body.tr-zoom .layer.show { scale: 1; }
+  body.tr-blur .layer:not(.show) { filter: blur(24px); }
+  body.tr-blur .layer.show { filter: none; }
+  body.tr-slide .layer:not(.show) { translate: 6% 0; }
+  body.tr-slide .layer.show { translate: 0 0; }
+  .layer > canvas, .layer > video, .layer > img, .layer > iframe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border: 0; }
+  .layer > video, .layer > img { object-fit: cover; }
+  .fit-contain .layer > video, .fit-contain .layer > img { object-fit: contain; }
+  .fit-stretch .layer > video, .fit-stretch .layer > img { object-fit: fill; }
+  #tint, #vig, #grain, #scan { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+  #tint { mix-blend-mode: soft-light; }
+  #vig { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,.85) 100%); }
+  #grain { inset: -80px; background-size: 160px 160px; mix-blend-mode: overlay; animation: agywe-grain .9s steps(6) infinite; }
+  #grain.still { animation: none; }
+  @keyframes agywe-grain { 0% { translate: 0 0; } 20% { translate: -40px 25px; } 40% { translate: 30px -50px; } 60% { translate: -60px -20px; } 80% { translate: 50px 40px; } 100% { translate: 0 0; } }
+  #scan { background: repeating-linear-gradient(to bottom, rgba(0,0,0,.55) 0, rgba(0,0,0,.55) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px); }
+  #dim { position: fixed; inset: 0; pointer-events: none; background: #000; opacity: 0; transition: opacity .8s ease; }
+  #glow { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
+    box-shadow: inset 0 0 90px 10px rgba(var(--g1, 120, 170, 255), .55); animation: agywe-pulse 2.4s ease-in-out infinite; }
+  body.busy.fx-glow #glow { opacity: 1; }
+  #stage { transition: filter .5s ease; }
+  body.mood-done #glow { opacity: 1; animation: agywe-glow-done 1.8s ease-out 2; }
+  body.mood-attention #glow { opacity: 1; animation: agywe-glow-att 2s ease-in-out infinite; }
+  body.mood-error #glow { opacity: 1; animation: agywe-glow-err 2.4s ease-in-out infinite; }
+  @keyframes agywe-glow-done { 0% { box-shadow: inset 0 0 40px 2px rgba(70,210,130,0); } 30% { box-shadow: inset 0 0 120px 18px rgba(70,210,130,.6); } 100% { box-shadow: inset 0 0 60px 4px rgba(70,210,130,0); } }
+  @keyframes agywe-glow-att { 0%, 100% { box-shadow: inset 0 0 60px 6px rgba(255,170,40,.30); } 50% { box-shadow: inset 0 0 110px 16px rgba(255,170,40,.58); } }
+  @keyframes agywe-glow-err { 0%, 100% { box-shadow: inset 0 0 60px 6px rgba(255,70,70,.28); } 50% { box-shadow: inset 0 0 110px 16px rgba(255,70,70,.52); } }
+  @keyframes agywe-pulse { 0%, 100% { box-shadow: inset 0 0 70px 6px rgba(var(--g1, 110, 160, 255), .40); } 50% { box-shadow: inset 0 0 120px 18px rgba(var(--g2, 170, 120, 255), .60); } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="tint"></div>
+<div id="vig"></div>
+<div id="grain"></div>
+<div id="scan"></div>
+<div id="dim"></div>
+<div id="glow"></div>
+<script src="webwallgl.global.min.js"></script>
+<script src="wall.js"></script>
+</body>
+</html>
