@@ -28,13 +28,17 @@
         close() { this.readyState = 2; sysSinks.delete(this); },
         addEventListener(t, f) { if (t === "message" && typeof f === "function") this._ls.add(f); },
         removeEventListener(t, f) { this._ls.delete(f); },
-        dispatchEvent() { return true; }
+        dispatchEvent() { return true; },
+        CONNECTING: 0, OPEN: 1, CLOSED: 2
       };
       sysSinks.add(es);
+      // v0.10.2：和真的 EventSource 一样，异步触发一次 open
+      setTimeout(() => { try { if (es.readyState === 1 && typeof es.onopen === "function") es.onopen({ type: "open" }); } catch { } }, 0);
       return es;
     }
     return NativeES ? new NativeES(url, opts) : undefined;
   };
+  window.EventSource.CONNECTING = 0; window.EventSource.OPEN = 1; window.EventSource.CLOSED = 2;
   function pushSys(obj) {
     if (!sysSinks.size) return;
     const ev = { data: JSON.stringify(obj), type: "message" };
@@ -376,7 +380,10 @@
     const k = keyOf(decision.ref) + "|" + !!cfg.enabled;
     if (!force && k === effKey && cur) return;
     effKey = k;
+    const mySeq = loadSeq + 1;
     await show(decision.ref);
+    // v0.10.2：没换成功（加载失败）就把 effKey 清掉，下一次检查（20 秒一次 / 配置变化）还会再试
+    if (mySeq === loadSeq && effKey === k && !(cur && cur.ok && cur.key === keyOf(decision.ref))) effKey = "";
   }
 
   function rotationPool() {
@@ -431,6 +438,8 @@
     if (!prev || keyOf(prev.current) !== keyOf(cfg.current) || prev.enabled !== cfg.enabled || needRemount || !cur || rulesChanged) {
       applyLook();
       await applyEffective(needRemount || !cur);
+      // v0.10.2：壁纸没变（只改了规则 / 开关）时 show() 会提前返回，不会通知上层；这里补一次
+      toParent({ type: "agywe:config", config: publicCfg() });
     } else {
       applyLive(prev);
       applyPropsChange(prev);
@@ -489,10 +498,13 @@
       const score = e.s * Math.max(0, 1 - Math.abs(e.l - 0.58) * 1.6) * Math.pow(e.n / n, 0.25);   // 面积权重放低：小块的亮色也能当强调色
       if (score > best) { best = score; acc = e; }
     }
+    // v0.10.2：右上角（窗口按钮那一条底下）的平均颜色，给「标题栏跟随壁纸」用
+    let tr = null;
+    { let r = 0, g = 0, b = 0, k = 0; for (let y = 0; y < 3; y++) for (let x = 48; x < 64; x++) { const i = (y * 64 + x) * 4; if (d[i + 3] < 128) continue; r += d[i]; g += d[i + 1]; b += d[i + 2]; k++; } if (k) tr = rgbHex([r / k, g / k, b / k]); }
     lums.sort((a, b) => a - b);
     const pct = (q) => Math.round(lums[Math.min(lums.length - 1, Math.max(0, Math.floor(q * (lums.length - 1))))]);
     // lo / hi：壁纸里偏暗 / 偏亮那 10% 的亮度（自动对比度按这两个算，比平均值稳）
-    return { dominant: rgbHex(dom.c), accent: rgbHex((acc || dom).c), dark: lum / n < 110, lum: Math.round(lum / n), lo: pct(0.1), hi: pct(0.9) };
+    return { dominant: rgbHex(dom.c), accent: rgbHex((acc || dom).c), tr: tr || rgbHex(dom.c), dark: lum / n < 110, lum: Math.round(lum / n), lo: pct(0.1), hi: pct(0.9) };
   }
   async function updatePalette() {
     const seq = ++palSeq;
@@ -549,7 +561,7 @@
       toParent({ type: "agywe:config", config: publicCfg() });
       toParent({ type: "agywe:outfit", name: p.outfit.name || "" });
       try { bc && bc.postMessage({ type: "config" }); } catch { }
-    } catch (e) { console.warn("[agywe] 换装失败", e); }
+    } catch (e) { console.warn("[agywe] 换装失败", e); outfitKey = null; }   // v0.10.2：失败了下一轮（20 秒后）再试
     finally { outfitBusy = false; }
   }
 

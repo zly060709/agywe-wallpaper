@@ -439,7 +439,7 @@
   function renderPet() {
     const pet = cfg.pet || {};
     const im = String(pet.image || "");
-    $("#petpath").textContent = !im ? "（默认角色）" : im.startsWith("url:") ? "（从界面上点选的图片）" : im;
+    $("#petpath").textContent = !im ? "（默认角色）" : im.startsWith("url:") ? "（从界面上点选的图片）" : /[\\/]agywe[\\/]assets[\\/]/i.test(im) ? "（从界面上点选的图片，已存成文件）" : im;
     renderPetPreview();
     get("info").then((info) => {
       const list = (info && info.petApps) || [];
@@ -484,7 +484,8 @@
     const b2 = $("#effline2"); if (b2) b2.textContent = eff && eff.label ? txt + "　在这里点一张会临时换掉，到下一次切换为止。" : "";
   }
   async function saveSchedule(slots) {
-    cfg.schedule = { ...(cfg.schedule || {}), slots: slots.map((x) => ({ at: x.at, ref: x.ref })) };
+    // v0.10.2：以前这里只留了 at / ref，选的「工作日 / 周末」一保存就丢了
+    cfg.schedule = { ...(cfg.schedule || {}), slots: slots.map((x) => (x.days ? { at: x.at, ref: x.ref, days: x.days } : { at: x.at, ref: x.ref })) };
     await save({ schedule: cfg.schedule }, true); renderSwitch();
   }
   function renderSwitch() {
@@ -964,13 +965,24 @@
         const soft = /swiftshader|basic render|llvmpipe|software/i.test(wall.gpu || "");
         add(!wall.webgl ? "bad" : soft ? "warn" : "ok", "显卡", !wall.webgl ? "WebGL 用不了，场景壁纸放不了（显卡驱动问题，或者硬件加速被关了）" : (soft ? "在用软件渲染，会很卡：" : "WebGL " + wall.webgl + " · ") + (wall.gpu || "未知显卡"));
       }
+      if (page && page.glassPerf && page.glassPerf.scans) {
+        const g = page.glassPerf;
+        // v0.10.2：补漏扫描放在空闲时做，平均耗时不再直接影响手感；看最长的那次和新内容的延迟
+        add(g.maxMs > 50 || (g.fast && (g.fastAvgMs > 8 || g.delayMs > 50)) ? "warn" : "ok", "毛玻璃扫描", "平均 " + g.avgMs + " ms，最长 " + g.maxMs + " ms，" + g.scans + " 次（" + g.minutes + " 分钟内）" + (g.slow ? "，有 " + g.slow + " 次超过 50 ms" : "") + "（启动后 15 秒内的不算最长）" + (g.fast ? " · 新内容 " + g.fast + " 批，平均 " + g.fastAvgMs + " ms，出现后 " + g.delayMs + " ms 内套上（最长 " + g.delayMaxMs + " ms）" : "") + " · 页面 " + g.nodes + " 个元素，毛玻璃 " + g.marked + " 块" + (g.maxMs > 50 || g.avgMs > 16 ? "。长对话里觉得卡的话，导出诊断报告给我" : ""));
+      }
       if (!page) add("bad", "界面插件", "没有回应");
       else add(page.ready ? (page.hideAll ? "off" : "ok") : "warn", "界面插件", page.hideAll ? "现在是一键隐藏状态" : page.ready ? "毛玻璃 " + page.marked + " 块 · 挂件" + (page.pet ? (page.petTop ? "在最上层" : "在，但没放进最上层") : "没显示") + " · " + (page.darkText ? "深色字" : "浅色字") + (page.contrast && page.contrast.need ? " · 自动对比度已调厚背板" : "") : "壁纸页还没准备好" + (page.lastErr ? "：" + page.lastErr : ""));
       if (info) {
         const A = { live: ["ok", "已接上"], denied: ["warn", "被系统拒绝了，在界面上随便点一下会再试"], unavailable: ["bad", "这台电脑不支持抓系统声音"], off: ["warn", "还没接上（没有音乐类壁纸时也是这个状态）"] };
         add(cfg.systemAudio === false ? "off" : (A[info.audioState] || ["warn", info.audioState])[0], "系统音频", cfg.systemAudio === false ? "关着" : (A[info.audioState] || ["", info.audioState])[1]);
         const np = info.nowPlaying;
-        add(cfg.nowPlaying === false ? "off" : info.npError ? "bad" : !np ? "warn" : "ok", "正在播放", cfg.nowPlaying === false ? "关着" : info.npError ? "读不到：" + info.npError.slice(0, 160) : !np ? "后台还没有输出（刚打开时等几秒）" : np.hasMedia ? "正在放：" + [np.title, np.artist].filter(Boolean).join(" — ") : "已连上，现在没在放歌");
+        const SUSP = { safe: "安全模式下不运行", battery: "用电池且设成暂停壁纸，后台先停着", hidden: "窗口都最小化了，后台先停着" };
+        add(cfg.nowPlaying === false ? "off" : info.npSuspended ? "off" : info.npError ? "bad" : !np ? "warn" : "ok", "正在播放", cfg.nowPlaying === false ? "关着" : info.npSuspended ? (SUSP[info.npSuspended] || "暂停中") : info.npError ? "读不到：" + info.npError.slice(0, 160) + (info.npMode === "encoded" ? "（已改用备用启动方式）" : "") : !np ? "后台还没有输出（刚打开时等几秒）" : np.hasMedia ? "正在放：" + [np.title, np.artist].filter(Boolean).join(" — ") : "已连上，现在没在放歌");
+        const fz = info.fuses;
+        if (!fz || !fz.found) add("warn", "安全开关", "没读到 Antigravity.exe 的 Electron 安全开关" + (fz && fz.error ? "（" + fz.error.slice(0, 80) + "）" : "") + "，不影响现在使用");
+        else if (fz.asarIntegrity === true) add("bad", "安全开关", "程序包完整性校验是开的：插件装不上这个版本");
+        else if (fz.runAsNode === false) add("warn", "安全开关", "RunAsNode 被关了：现在能用，但 Antigravity 下次更新后安装器和自动重装都跑不起来");
+        else add("ok", "安全开关", "RunAsNode 开 · 程序包完整性校验 关（插件能装、能自动重装）");
         add(info.notify ? "ok" : "bad", "通知", info.notify ? "支持，点上面「发一条测试通知」看能不能弹出来（开了勿扰模式就不会弹）" : "这台电脑不支持 Windows 通知");
         add(info.autofix && info.autofix.on ? "ok" : "off", "自动重装", info.autofix && info.autofix.on ? "开着" + (info.autofix.last && info.autofix.last.length ? " · 最近：" + info.autofix.last.slice(-1)[0] : "") : "关着，Antigravity 更新后要手动重装");
         add(info.safe && info.safe.fails ? "warn" : "ok", "启动", info.safe && info.safe.fails ? "最近有 " + info.safe.fails + " 次没能正常启动" : "最近启动都正常");

@@ -111,7 +111,15 @@
         <select data-k="fit"><option value="cover">填满裁切</option><option value="contain">完整显示</option><option value="stretch">拉伸</option></select></div>
       <div class="row"><label>Agent 运行时</label>
         <select data-k="agentFx"><option value="glow">边缘呼吸光</option><option value="brighten">壁纸变亮</option><option value="none">无效果</option></select></div>
-      <div class="row"><label>透明标题栏</label><label class="switch"><input type="checkbox" data-k="transparentTitleBar"><span></span></label><small>实验：窗口右上角按钮区透明，下次切换主题后生效</small></div>
+      <div class="row"><label>窗口按钮那一条</label><select data-k="titleBarMode"><option value="off">不改（Antigravity 原来的颜色）</option><option value="clear">透明（推荐）</option><option value="match">跟随壁纸颜色</option></select><small>右上角最小化 / 最大化 / 关闭那一条是系统画的，毛玻璃碰不到。「透明」直接透出底下的标题栏毛玻璃；万一这台电脑上变成纯黑，就换成「跟随壁纸颜色」（用一块纯色去填）</small></div>
+      <div class="row"><label>浮层不透明度</label><input type="range" min="0.1" max="1" step="0.01" data-k="floatOpacity"><output></output><small>模型选择（含右边的子菜单）、下拉菜单、右键菜单、提示气泡</small></div>
+      <div class="row"><label>浮层模糊</label><input type="range" min="0" max="40" step="1" data-k="floatBlur"><output></output><small>px；透明度调低时把模糊调高，后面的字就不会和菜单里的字叠在一起</small></div>
+      <div class="row"><label>弹窗不透明度</label><input type="range" min="0.1" max="1" step="0.01" data-k="dialogOpacity"><output></output><small>设置页这类占了大半个窗口的弹窗</small></div>
+      <div class="row"><label>弹窗模糊</label><input type="range" min="0" max="40" step="1" data-k="dialogBlur"><output></output><small>px</small></div>
+      <div class="row"><label>输入框外圈</label><input type="range" min="0" max="0.6" step="0.01" data-k="composerRing"><output></output><small>输入框四周那条细线的深浅，0 = 不要线</small></div>
+      <div class="row"><label>允许其他插件挂进界面</label><label class="switch"><input type="checkbox" data-k="cdpForPlugins"><span></span></label><small>猫猫桌宠这类插件要靠它显示出来（打开一个只有本机能连的调试端口）。改了要重启 Antigravity 才生效</small></div>
+      <div class="row"><label>界面汉化</label><label class="switch"><input type="checkbox" data-k="zh"><span></span></label><small>把 Antigravity 界面上的英文按钮、菜单、提示换成中文。插件自带，不改程序文件；对话内容、代码、输入框里的字不会动</small></div>
+      <div class="row"><label>补充翻译</label><textarea data-k="zhExtra" rows="4" class="wide" style="flex:1;min-width:260px;resize:vertical;font:inherit" placeholder="还有没翻到的，每行写一条：英文 = 中文&#10;例如：Build with Google = 用 Google 构建"></textarea></div>
     </section>
 
     <section id="tab-pet">
