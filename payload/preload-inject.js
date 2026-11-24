@@ -49,7 +49,8 @@
     try { hideAll = sessionStorage.getItem("agywe:hideall") === "1"; } catch { }
 
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-    const post = (msg) => { try { frame && frame.contentWindow && frame.contentWindow.postMessage(msg, ORIGIN); } catch { } };
+    // v0.10.5：壁纸页还没加载完时 contentWindow 还是 about:blank（和页面同源），这时发会报「target origin 不匹配」，消息也送不到，先不发
+    const post = (msg) => { try { frame && frame.__agyweLoaded && frame.contentWindow && frame.contentWindow.postMessage(msg, ORIGIN); } catch { } };
     // ---- 快捷键的解析 / 显示（hook.js、preload、设置页里是同一份）----
     const HK_NAMES = { BracketRight: "]", BracketLeft: "[", Backquote: "`", Minus: "-", Equal: "=", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backslash: "\\", Space: "Space", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right", Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown", Insert: "Insert", Delete: "Delete" };
     const HK_CODES = Object.fromEntries(Object.entries(HK_NAMES).map(([c, n]) => [n.toLowerCase(), c]));
@@ -107,8 +108,8 @@
         try {
           if (channel === "agent:update-active-count") { const prev = agents; agents = Number(args[0]) || 0; post({ type: "agywe:agents", count: agents }); updatePetBusy(); onAgentCount(prev, agents); }
           if (channel === "notification:send" && args[0] && typeof args[0] === "object") onAppNotification(args[0]);
-          if (channel === "window:set-title-bar-overlay" && cfg && cfg.enabled && cfg.transparentTitleBar && args[0] && typeof args[0] === "object") {
-            args[0] = { ...args[0], color: "#00000000" };
+          if (channel === "window:set-title-bar-overlay" && cfg && cfg.enabled && cfg.titleBarMode === "clear" && args[0] && typeof args[0] === "object") {
+            args[0] = { ...args[0], color: "rgba(0, 0, 0, 0)" };   // v0.10.3：Electron 不认 #00000000 这种 8 位写法，会直接报错
           }
         } catch { }
         return orig(channel, ...args);
@@ -119,6 +120,21 @@
     const CSS = `
 html.agywe-on, html.agywe-on body { background: transparent !important; background-color: transparent !important; }
 html.agywe-on [data-agywe-glass="clear"] { background-color: transparent !important; background-image: none !important; }
+/* v0.10.2：图标按钮（切换侧边栏这类）悬停 / 按下 / 展开时原本是一块实色方块，改成半透明 */
+html.agywe-glasson .agy-button[class*="agy-button-icon"]:is(:hover, :active, [aria-pressed="true"], [aria-expanded="true"], [aria-selected="true"], [aria-checked="true"], [data-state="open"], [data-state="on"], [data-state="active"], [data-state="checked"], [data-active="true"], [data-selected="true"]):not([data-agywe-glass]) { background-color: rgba(255,255,255,.13) !important; background-image: none !important; }
+html.agywe-glasson.agywe-darktext .agy-button[class*="agy-button-icon"]:is(:hover, :active, [aria-pressed="true"], [aria-expanded="true"], [aria-selected="true"], [aria-checked="true"], [data-state="open"], [data-state="on"], [data-state="active"], [data-state="checked"], [data-active="true"], [data-selected="true"]):not([data-agywe-glass]) { background-color: rgba(0,0,0,.10) !important; }
+/* v0.10.4：输入框外圈。原来的深色外框 / 阴影在壁纸上像一圈很粗的黑边，换成一条细的半透明线，点进去时稍微亮一点 */
+html.agywe-glasson :is(.surface-composer, .surface-composer-card, [id="antigravity.agentSidePanelInputBox"]),
+html.agywe-glasson :is(.surface-composer, .surface-composer-card)::before, html.agywe-glasson :is(.surface-composer, .surface-composer-card)::after { box-shadow: none !important; outline: none !important; }
+html.agywe-glasson .surface-composer { border-color: transparent !important; }
+html.agywe-glasson .surface-composer-card { border-color: rgba(255,255,255,var(--agywe-ring, .12)) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,var(--agywe-ring, .12)) !important; }
+html.agywe-glasson .surface-composer:focus-within .surface-composer-card { box-shadow: inset 0 0 0 1px rgba(255,255,255,calc(var(--agywe-ring, .12) * 2)) !important; }
+html.agywe-glasson.agywe-darktext .surface-composer-card { border-color: rgba(0,0,0,var(--agywe-ring, .12)) !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,var(--agywe-ring, .12)) !important; }
+html.agywe-glasson.agywe-darktext .surface-composer:focus-within .surface-composer-card { box-shadow: inset 0 0 0 1px rgba(0,0,0,calc(var(--agywe-ring, .12) * 2)) !important; }
+html.agywe-glasson :is(.surface-composer, .surface-composer-card) :is(textarea, [contenteditable], [role="textbox"]) { outline: none !important; box-shadow: none !important; }
+/* v0.10.3：有的图标按钮选中 / 展开时的实色方块画在 ::before / ::after 上，按钮本身是透明的 */
+html.agywe-glasson [data-agywe-pse~="b"]::before, html.agywe-glasson [data-agywe-pse~="a"]::after { background-color: rgba(255,255,255,.13) !important; background-image: none !important; }
+html.agywe-glasson.agywe-darktext [data-agywe-pse~="b"]::before, html.agywe-glasson.agywe-darktext [data-agywe-pse~="a"]::after { background-color: rgba(0,0,0,.10) !important; }
 html.agywe-on [data-agywe-glass="panel"], html.agywe-on [data-agywe-glass="field"] {
   background-color: rgba(var(--agywe-c, 20,20,20), var(--agywe-alpha, .55)) !important;
   background-image: none !important;
@@ -131,6 +147,8 @@ html.agywe-on [data-agywe-glass="inner"] {
   background-image: none !important;
 }
 html.agywe-on.agywe-tint [data-agywe-glass] { --agywe-c: var(--agywe-tint) !important; }
+html.agywe-on :is([data-agywe-glass="dialog"], [data-agywe-glass="float"]) { box-shadow: 0 10px 32px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.14) !important; }
+html.agywe-on.agywe-darktext :is([data-agywe-glass="dialog"], [data-agywe-glass="float"]) { box-shadow: 0 10px 32px rgba(0,0,0,.16), inset 0 0 0 1px rgba(0,0,0,.10) !important; }
 html.agywe-on.agywe-border [data-agywe-glass="panel"] { box-shadow: inset 0 0 0 1px rgba(255,255,255,.10) !important; }
 html.agywe-on.agywe-shadow body {
   text-shadow: 0 0 1px rgba(var(--agywe-halo, 255,255,255), var(--agywe-halo-a, .6)),
@@ -499,6 +517,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
         frame.setAttribute("aria-hidden", "true");
         frame.setAttribute("tabindex", "-1");
         frame.setAttribute("allow", "autoplay; fullscreen");
+        frame.addEventListener("load", function () { this.__agyweLoaded = true; });
         frame.src = ORIGIN + "/index.html";
         root.appendChild(frame);
       }
@@ -833,7 +852,42 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
           }
         }
       } catch { }
-      return { chat: av.stats, band, kinds: [...marked].reduce((o, e) => { const k = baseKind.get(e) + ">" + (e.getAttribute("data-agywe-glass") || ""); o[k] = (o[k] || 0) + 1; return o; }, {}), chips: chips.length, chipList: chips.slice(0, 12).map(nodeInfo), darkText, items, fields, why, corner: cornerReport(), petLike: petCandidates(), holes: document.querySelectorAll(HOLE_SEL).length, force: (cfg && cfg.glassForce) || [], exclude: (cfg && cfg.glassExclude) || [] };
+      // v0.10.2：「切换侧边栏」按钮往上几层都是什么颜色、有没有被处理；再看看左上角那一条
+      const toggles = [];
+      try {
+        for (const b of toggleEls().slice(0, 3)) {
+          const chain = [];
+          let el = b;
+          for (let k = 0; el && el !== document.body && k < 7; k++, el = el.parentElement) {
+            const cs = getComputedStyle(el);
+            chain.push({ ...nodeInfo(el), label: (el.getAttribute("aria-label") || el.getAttribute("title") || "").slice(0, 30), bg: cs.backgroundColor, bgImg: String(cs.backgroundImage || "").slice(0, 100), glass: el.getAttribute("data-agywe-glass") || "", hot: isHot(el) });
+          }
+          toggles.push(chain);
+        }
+      } catch { }
+      const topLeft = [];
+      try {
+        const seenTL = new Set();
+        for (const [x, y] of [[12, 12], [40, 18], [120, 18], [200, 18], [40, 30]]) for (const el of document.elementsFromPoint(x, y).slice(0, 8)) {
+          if (seenTL.has(el) || isOurs(el) || el === document.body || el === document.documentElement) continue;
+          seenTL.add(el);
+          const cs = getComputedStyle(el);
+          topLeft.push({ at: [x, y], ...nodeInfo(el), bg: cs.backgroundColor, bgImg: String(cs.backgroundImage || "").slice(0, 100), glass: el.getAttribute("data-agywe-glass") || "" });
+          if (topLeft.length >= 24) break;
+        }
+      } catch { }
+      const topRight = [];
+      try {
+        const seenTR = new Set();
+        for (const [x, y] of [[W - 30, 12], [W - 160, 12], [W - 20, 95], [W - 45, 95], [W - 80, 95]]) for (const el of document.elementsFromPoint(x, y).slice(0, 8)) {
+          if (seenTR.has(el) || isOurs(el) || el === document.body || el === document.documentElement) continue;
+          seenTR.add(el);
+          const cs = getComputedStyle(el);
+          topRight.push({ at: [Math.round(x), y], ...nodeInfo(el), label: (el.getAttribute("aria-label") || el.getAttribute("title") || "").slice(0, 30), pressed: el.getAttribute("aria-pressed") || el.getAttribute("aria-expanded") || el.getAttribute("data-state") || "", bg: cs.backgroundColor, glass: el.getAttribute("data-agywe-glass") || "", hot: isHot(el) });
+          if (topRight.length >= 30) break;
+        }
+      } catch { }
+      return { overlays: overlayReport(), icons: iconReport(), composer: composerReport(), zh: zhReport(), toggles, topLeft, topRight, titleBar: tbLast, chat: av.stats, band, kinds: [...marked].reduce((o, e) => { const k = baseKind.get(e) + ">" + (e.getAttribute("data-agywe-glass") || ""); o[k] = (o[k] || 0) + 1; return o; }, {}), chips: chips.length, chipList: chips.slice(0, 12).map(nodeInfo), darkText, items, fields, why, corner: cornerReport(), petLike: petCandidates(), holes: document.querySelectorAll(HOLE_SEL).length, force: (cfg && cfg.glassForce) || [], exclude: (cfg && cfg.glassExclude) || [] };
     }
     function diag(reason, extra) {
       try {
@@ -961,7 +1015,10 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       }
       savedInline.delete(el);
     }
-    const BLUR_VAL = "var(--agywe-bf, blur(var(--agywe-blur, 18px)) saturate(1.25))";   // 低配模式把 --agywe-bf 设成 none
+    const BLUR_VAL = "var(--agywe-bf, blur(var(--agywe-blur, 18px)) saturate(1.25))";
+    // 弹窗 / 浮层至少模糊 16px：就算界面模糊调成 0，后面的字也不会和浮层里的字叠在一起
+    const DIALOG_BLUR = "var(--agywe-bf, blur(var(--agywe-dblur, 16px)) saturate(1.2))";
+    const FLOAT_BLUR = "var(--agywe-bf, blur(var(--agywe-fblur, 16px)) saturate(1.2))";   // 低配模式把 --agywe-bf 设成 none
     function paint(el, kind) {
       if (!origBorder.has(el)) {
         try { const cs = getComputedStyle(el); origBorder.set(el, parseFloat(cs.borderTopWidth) > 0 ? toRgba(cs.borderTopColor) : null); } catch { origBorder.set(el, null); }
@@ -970,6 +1027,8 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       const s = el.style;
       const set = (p, v) => { if (s.getPropertyValue(p) !== v || s.getPropertyPriority(p) !== "important") s.setProperty(p, v, "important"); };
       const unset = (p) => { const o = (savedInline.get(el) || {})[p]; if (o) s.setProperty(p, o[0], o[1]); else s.removeProperty(p); };
+      // v0.10.4：.surface-composer 是一圈 1px 内边距的外框，它的底色就是那一圈边；交给上面的细线，自己透明
+      if (kind !== "clear" && el.classList && el.classList.contains("surface-composer")) kind = "clear";
       if (kind === "clear") {
         set("background-color", "transparent");
         set("background-image", "none");
@@ -979,7 +1038,10 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       const a = kind === "inner" ? "calc(var(--agywe-alpha, .55) * .6)"
         : kind === "field" ? "min(1, calc(var(--agywe-alpha, .55) * 1.2))"
         : kind === "chip" ? "max(var(--agywe-alpha, .55), var(--agywe-chip, .45))"
+        : kind === "icon" ? "calc(var(--agywe-chip, .45) * .45)"
         : kind === "content" ? "var(--agywe-content, .3)"
+        : kind === "dialog" ? "var(--agywe-dialog, .55)"
+        : kind === "float" ? "var(--agywe-float, .55)"
         : "var(--agywe-alpha, .55)";
       // 气泡 / 卡片原本的实色描边在透明之后会很扎眼，改成同色半透明
       const ob = origBorder.get(el);
@@ -987,13 +1049,42 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       else unset("border-color");
       set("background-color", `rgba(var(--agywe-c, 20,20,20), ${a})`);
       set("background-image", "none");
-      if (kind === "inner") { unset("-webkit-backdrop-filter"); unset("backdrop-filter"); }
+      if (kind === "inner" || kind === "icon") { unset("-webkit-backdrop-filter"); unset("backdrop-filter"); }
+      else if (kind === "dialog") { set("-webkit-backdrop-filter", DIALOG_BLUR); set("backdrop-filter", DIALOG_BLUR); }
+      else if (kind === "float") { set("-webkit-backdrop-filter", FLOAT_BLUR); set("backdrop-filter", FLOAT_BLUR); }
       else { set("-webkit-backdrop-filter", BLUR_VAL); set("backdrop-filter", BLUR_VAL); }
     }
-    function clearGlass() { for (const el of [...marked]) unmark(el); }
+    function clearGlass() { for (const el of [...marked]) unmark(el); try { for (const el of document.querySelectorAll("[data-agywe-pse]")) el.removeAttribute("data-agywe-pse"); } catch { } pseSig = new WeakMap(); }
 
+    // v0.10.1：记一下每次毛玻璃扫描花了多久（自检页和诊断报告里看）；超过 50 ms 的写进日志，一分钟最多一条
+    const glassPerf = { n: 0, total: 0, max: 0, last: 0, slow: 0, slowAt: 0, since: Date.now(), fn: 0, ftotal: 0, fmax: 0, delayN: 0, delayTotal: 0, delayMax: 0 };
+    function perfSummary() {
+      const r1 = (v) => +v.toFixed(1);
+      return {
+        scans: glassPerf.n, avgMs: glassPerf.n ? +(glassPerf.total / glassPerf.n).toFixed(2) : 0, maxMs: r1(glassPerf.max), lastMs: +glassPerf.last.toFixed(2), slow: glassPerf.slow,
+        // v0.10.2：新出现的内容走"快速通道"，下一帧之前就处理掉；delay 是从内容出现到套上毛玻璃隔了多久
+        fast: glassPerf.fn, fastAvgMs: glassPerf.fn ? +(glassPerf.ftotal / glassPerf.fn).toFixed(2) : 0, fastMaxMs: r1(glassPerf.fmax),
+        delayMs: glassPerf.delayN ? r1(glassPerf.delayTotal / glassPerf.delayN) : 0, delayMaxMs: r1(glassPerf.delayMax),
+        nodes: document.getElementsByTagName("*").length, marked: marked.size, minutes: Math.round((Date.now() - glassPerf.since) / 60000)
+      };
+    }
     function scanGlass() {
       if (!ready || !cfg || !cfg.enabled || !cfg.glass || hideAll) return;
+      if (document.hidden) return;   // 窗口最小化 / 被完全挡住时不扫，回来时 visibilitychange 会补一次
+      const t0 = performance.now();
+      try { return scanGlassInner(); }
+      finally {
+        const dt = performance.now() - t0;
+        // 启动后头 15 秒页面还在一批批加载，第一遍要把所有元素都看一次，不算进最长 / 慢的次数
+        const warm = Date.now() - glassPerf.since < 15000;
+        glassPerf.n++; glassPerf.total += dt; glassPerf.last = dt; if (!warm && dt > glassPerf.max) glassPerf.max = dt;
+        if (dt > 50 && !warm) {
+          glassPerf.slow++;
+          if (Date.now() - glassPerf.slowAt > 60000) { glassPerf.slowAt = Date.now(); try { diagLite("glass-slow", { ms: Math.round(dt), perf: perfSummary() }); } catch { } }
+        }
+      }
+    }
+    function scanGlassInner() {
       const W = innerWidth, H = innerHeight, VA = W * H;
       if (!VA) return;
       // 1) 网格取样：大块不透明背景
@@ -1005,22 +1096,38 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
         // 顶部标题栏 / 底部状态栏这种细长条，网格中心点扫不到
         pts.push([x, 10], [x, 26], [x, H - 10]);
       }
+      // 左上角（侧栏开关那一条）和左下角：细长条，网格点容易漏
+      pts.push([12, 12], [40, 18], [80, 18], [140, 18], [200, 18], [12, H - 14], [60, H - 14]);
       {
+        // v0.10.2：同一个元素会出现在几十个取样点的命中栈里（外层容器尤其如此），一次扫描里只看一遍
+        const seenPt = new Set();
         for (const [x, y] of pts) {
           let stack;
           try { stack = document.elementsFromPoint(x, y); } catch { continue; }
           for (const el of stack) {
             if (el === document.documentElement || el === document.body) break;
+            if (seenPt.has(el)) continue;
+            seenPt.add(el);
             if (isOurs(el) || marked.has(el)) continue;
             const cs = getComputedStyle(el);
             const bg0 = bgOf(cs);
             if (bg0 && bg0.fade && !isForced(el)) { mark(el, "clear", bg0.c); continue; }
-            const c = opaqueBg(cs, 0.35);
-            if (!c) continue;
+            const c0 = opaqueBg(cs, 0.35);
+            const weak = !c0 && bg0 && bg0.c && bg0.c.a >= 0.05 ? bg0.c : null;
+            if (!c0 && !weak) continue;
             const r = el.getBoundingClientRect();
             const area = Math.max(0, Math.min(r.right, W) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, H) - Math.max(r.top, 0));
-            const bar = r.width >= W * 0.5 && r.height >= 18 && (r.top <= 2 || r.bottom >= H - 2);
+            // v0.10.6：弹窗 / 浮层先认出来：不管面积、悬停、自带底色淡不淡都处理
+            const ok = area >= VA * 0.006 && r.width >= 100 && r.height >= 48 ? overlayKind(el) : "";
+            if (ok) {
+              if ((el.matches && el.matches(HOLE_SEL)) || isExcluded(el)) continue;
+              mark(el, ok, c0 || weak); continue;
+            }
+            const c = c0;
+            if (!c) continue;
+            const bar = (r.width >= W * 0.5 && r.height >= 18 && (r.top <= 2 || r.bottom >= H - 2)) || edgeStrip(r, W, H);
             if (area < VA * 0.04 && !bar) continue;
+            const dlg = false;
             if (cs.position === "fixed" && area < VA * 0.5 && el.getAttribute("role") === "dialog") continue;
             if (el.matches && el.matches(HOLE_SEL)) continue;
             if (isExcluded(el)) continue;
@@ -1061,14 +1168,44 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
           if (!marked.has(el) || baseKind.get(el) === "clear" || baseKind.get(el) === "inner") mark(el, "panel", c || { r: 20, g: 20, b: 20 });
         }
       }
-      // 4) 气泡 / 卡片 / 小按钮：网格点和输入框都碰不到的中小块，隔一会儿全页扫一遍
-      if (Date.now() - lastFull > 1500) { lastFull = Date.now(); try { revalidate(); } catch { } try { scanChips(W, H, VA); } catch { } }
+      // 3b) v0.10.2：「切换侧边栏」按钮所在的那一条。它往往只有按钮宽、没有文字，前面几步都会漏掉
+      try { scanToggles(W, H, VA); } catch { }
+      // 4) 气泡 / 卡片 / 小按钮：网格点和输入框都碰不到的中小块。只看新出现的 / class 变过的，20 秒轮一遍全量
+      try { scanChips(W, H, VA); } catch { }
+      try { sweepIcons(); } catch { }
+      if (Date.now() - lastFull > 5000) { lastFull = Date.now(); pseSig = new WeakMap(); try { revalidate(); } catch { } }
       normalizeGlass();
       for (const el of marked) if (!el.isConnected) { marked.delete(el); baseKind.delete(el); holeHosts.delete(el); }
     }
     let lastFull = 0;
     // 整个窗口那么大的是底板（全透明）；占大半个窗口的是对话 / 工作区（给一层阅读背板）；其余是面板
     function bigKind(area, VA) { return area > VA * 0.92 ? "clear" : area > VA * 0.55 ? "content" : "panel"; }
+    // 贴着窗口边的细长条（标题栏左半截、侧栏开关那一条、底部状态栏的一段）：面积小，但不处理就是一条实色带
+    function edgeStrip(r, W, H) {
+      const t = Math.min(r.width, r.height), len = Math.max(r.width, r.height);
+      if (t < 18 || t > 90 || len < 120) return false;
+      return r.width >= r.height ? (r.top <= 2 || r.bottom >= H - 2) : (r.left <= 2 || r.right >= W - 2);
+    }
+    const TOGGLE_SEL = '[aria-label*="侧边栏"], [aria-label*="边栏"], [aria-label*="sidebar" i], [title*="侧边栏"], [title*="sidebar" i], [data-tooltip*="侧边栏"], [data-tooltip*="sidebar" i]';
+    function toggleEls() { try { return [...document.querySelectorAll(TOGGLE_SEL)].filter((el) => !isOurs(el)).slice(0, 6); } catch { return []; } }
+    function scanToggles(W, H, VA) {
+      for (const b of toggleEls()) {
+        let el = b;
+        for (let depth = 0; el && el !== document.body && el !== document.documentElement && depth < 7; depth++, el = el.parentElement) {
+          if (marked.has(el)) { if (baseKind.get(el) !== "clear") break; continue; }
+          if (isExcluded(el) || isHot(el)) continue;
+          const cs = getComputedStyle(el);
+          const c = opaqueBg(cs, 0.35);
+          if (!c) continue;
+          const r = el.getBoundingClientRect();
+          const area = r.width * r.height;
+          if (area > VA * 0.45) break;
+          if (el.querySelector && el.querySelector(HOLE_SEL)) break;
+          mark(el, area >= VA * 0.04 || edgeStrip(r, W, H) || el !== b ? "panel" : "chip", c);
+          break;
+        }
+      }
+    }
     // 鼠标正停在上面 / 正被按住的元素：背景色可能只是悬停效果，不能当成它本来的颜色锁住
     function isHot(el) {
       try {
@@ -1094,40 +1231,202 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
         if (bc) el.style.setProperty("background-color", bc, bcp); if (bi) el.style.setProperty("background-image", bi, bip);
         if (ga) el.setAttribute("data-agywe-glass", ga);
         const b = now[i];
-        if (!b || b.c.a < 0.3) { unmark(el); orig.delete(el); origBorder.delete(el); }
+        const ov = baseKind.get(el) === "float" || baseKind.get(el) === "dialog";
+        if (!b || b.c.a < (ov ? 0.05 : 0.3)) { unmark(el); orig.delete(el); origBorder.delete(el); }
         else if (!b.fade) { const v = `${b.c.r},${b.c.g},${b.c.b}`; if (v !== orig.get(el)) { orig.set(el, v); el.style.setProperty("--agywe-c", v); } }
       });
     }
+    const SKIP_TAGS = new Set(["svg", "path", "g", "use", "IMG", "CANVAS", "VIDEO", "IFRAME", "INPUT", "SELECT", "OPTION", "SCRIPT", "STYLE", "LINK", "META", "BR", "WBR", "SOURCE", "TEMPLATE"]);
+    // 一个元素要不要套毛玻璃：返回 [el, kind, 颜色]；null = 不用；undefined = 现在判断不了（在屏幕外 / 鼠标正停在上面），过会儿再看
+    // v0.10.5：弹窗 + 浮层（模型选择、下拉菜单、右键菜单、提示气泡、悬浮卡片）。这些叠在对话上面，太透明会和后面的字混在一起
+    const DIALOG_SEL = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog, [role="menu"], [role="menubar"], [role="listbox"], [role="tooltip"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-radix-dropdown-menu-content], [data-radix-select-content], [data-radix-popover-content], [data-radix-hover-card-content], [data-popper-placement], [data-side][data-state], [cmdk-root], .agy-overlay, .agy-fastpick';
+    const MODAL_SEL = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog';
+    const floatCache = new WeakMap();
+    // v0.10.6：叠在对话上面的东西分两种：
+    //   "dialog" = 设置页这类占了大半个窗口的弹窗；"float" = 下拉菜单、模型选择（含子菜单）、右键菜单、提示气泡、悬浮卡片
+    // 两种各有一个不透明度 / 模糊设置
+    function overlayKind(el) {
+      try {
+        const host = el.closest && el.closest(DIALOG_SEL);
+        if (!host && !inDialog(el)) return "";
+        const m = el.closest && el.closest(MODAL_SEL);
+        if (m) { const r = m.getBoundingClientRect(); if (r.width * r.height >= innerWidth * innerHeight * 0.2) return "dialog"; }
+        return "float";
+      } catch { return ""; }
+    }
+    function inDialog(el) {
+      try {
+        if (el.closest && el.closest(DIALOG_SEL)) return true;
+        // 没有标记的浮层：往上几层里有固定定位、又不是整个窗口那么大的
+        const now = Date.now(), c = floatCache.get(el);
+        if (c && now - c[1] < 3000) return c[0];
+        let hit = false;
+        const VA = innerWidth * innerHeight;
+        for (let p = el, n = 0; p && p !== document.body && n < 6; p = p.parentElement, n++) {
+          if (isOurs(p)) break;
+          const cs = getComputedStyle(p);
+          if (cs.position === "fixed" || (cs.position === "absolute" && (parseInt(cs.zIndex, 10) || 0) >= 40)) {
+            const r = p.getBoundingClientRect();
+            if (r.width * r.height < VA * 0.6 && r.width > 120 && r.height > 60) hit = true;
+            break;
+          }
+        }
+        floatCache.set(el, [hit, now]);
+        return hit;
+      } catch { return false; }
+    }
+    // v0.10.3：像按钮的元素（按钮 / role=button / agy-button）
+    function btnLike(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (el.tagName === "BUTTON") return true;
+      const ro = el.getAttribute("role");
+      if (ro === "button" || ro === "tab" || ro === "switch") return true;
+      return (el.getAttribute("class") || "").indexOf("agy-button") >= 0;
+    }
+    function nearBtn(el, r) {
+      for (let p = el.parentElement, n = 0; p && n < 3; p = p.parentElement, n++) if (btnLike(p)) return true;
+      try { if (el.querySelector && el.querySelector('button, [role="button"], .agy-button, svg')) return true; } catch { }
+      const par = el.parentElement;
+      if (par && par.children.length <= 12) for (const s of par.children) {
+        if (s === el || !btnLike(s)) continue;
+        const q = s.getBoundingClientRect();
+        if (Math.abs(q.left - r.left) < 8 && Math.abs(q.top - r.top) < 8) return true;
+      }
+      return false;
+    }
+    // 伪元素（::before / ::after）上的实色底：记在 data-agywe-pse 上，由 CSS 换成半透明
+    const PSE_STATE = ["aria-pressed", "aria-expanded", "aria-selected", "aria-checked", "data-state", "data-active", "data-selected"];
+    let pseSig = new WeakMap();
+    function pseudoFix(el) {
+      if (!btnLike(el) || isOurs(el)) return;
+      const sig = (el.getAttribute("class") || "") + "|" + PSE_STATE.map((a) => el.getAttribute(a) || "").join(",");
+      if (pseSig.get(el) === sig) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 8 || r.width > 64 || r.height < 8 || r.height > 64) { pseSig.set(el, sig); return; }
+      if (el.matches(":hover") || el.matches(":active")) return;   // 悬停时的颜色不算，鼠标移开后再看
+      const had = el.getAttribute("data-agywe-pse");
+      if (had) el.removeAttribute("data-agywe-pse");
+      let v = "";
+      for (const [pe, k] of [["::before", "b"], ["::after", "a"]]) {
+        const ps = getComputedStyle(el, pe);
+        if (!ps.content || ps.content === "none" || ps.content === "normal") continue;
+        const c = toRgba(ps.backgroundColor);
+        if (c && c.a >= 0.35) v += (v ? " " : "") + k;
+      }
+      pseSig.set(el, sig);
+      if (v) el.setAttribute("data-agywe-pse", v);
+    }
+    function sweepIcons() {
+      let n = 0;
+      for (const el of document.querySelectorAll('button, [role="button"], .agy-button')) {
+        if (++n > 500) break;
+        try { pseudoFix(el); } catch { }
+      }
+    }
+    function decideEl(el, W, H, VA) {
+      if (SKIP_TAGS.has(el.tagName)) return null;
+      if (btnLike(el)) { try { pseudoFix(el); } catch { } }
+      const cs = getComputedStyle(el);
+      const bgc = cs.backgroundColor;
+      if ((!bgc || bgc === "rgba(0, 0, 0, 0)" || bgc === "transparent") && (!cs.backgroundImage || cs.backgroundImage === "none")) return null;
+      const bg0 = bgOf(cs);
+      if (bg0 && bg0.fade) return isForced(el) ? null : [el, "clear", bg0.c];
+      let c = opaqueBg(cs, 0.35);
+      // v0.10.6：浮层（子菜单这类）自带的底色常常本来就很淡（半透明 + 模糊），以前达不到 35% 就被跳过，现在 5% 以上就接手
+      const weak = !c && bg0 && bg0.c && bg0.c.a >= 0.05 ? bg0.c : null;
+      if (!c && !weak) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return undefined;   // 还没显示出来（折叠 / display 切换中）
+      if (r.bottom < 0 || r.top > H || r.right < 0 || r.left > W) return undefined;
+      if (el.matches && el.matches(HOLE_SEL)) return null;
+      if (el.querySelector && el.querySelector(HOLE_SEL)) return null;   // 含内置浏览器的容器交给全量扫描（要挖洞）
+      if (isExcluded(el)) return null;
+      const area = Math.max(0, Math.min(r.right, W) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, H) - Math.max(r.top, 0));
+      // 弹窗 / 浮层：鼠标停在上面也照样处理（子菜单都是鼠标移过去才弹出来的，以前会被当成「悬停的小块」一直跳过）
+      if (area >= VA * 0.006 && r.width >= 100 && r.height >= 48) {
+        const ok = overlayKind(el);
+        if (ok) return [el, ok, c || weak];
+      }
+      if (!c) return null;
+      if (isHot(el)) return undefined;
+      if (area >= VA * 0.04) return [el, bigKind(area, VA), c];
+      if (edgeStrip(r, W, H)) return [el, "panel", c];
+      // v0.10.2：小图标按钮（切换侧边栏这类）被选中 / 展开时的实色方块：以前因为太小、没有文字被跳过
+      if (r.width >= 16 && r.width <= 56 && r.height >= 16 && r.height <= 56 && btnLike(el)) return [el, "icon", c];
+      // v0.10.3：按钮里面 / 叠在按钮底下那块没有字的小方块（选中高亮、展开状态的底色），以前会因为"太小又没字"被跳过
+      if (r.width >= 12 && r.width <= 64 && r.height >= 12 && r.height <= 64 && !(el.textContent || "").trim() && Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < 32 && nearBtn(el, r)) return [el, "icon", c];   // 只管黑 / 灰 / 白这种中性色，彩色徽标不动
+      if (c.a < 0.5 || r.width < 40 || r.height < 20 || area < VA * 0.0012) return null;
+      // 需要有文字或者是圆角块，避免把分隔线、进度条之类的也处理掉
+      const rounded = parseFloat(cs.borderTopLeftRadius) >= 6;
+      if (!rounded && !(el.textContent || "").trim()) return null;
+      return [el, "chip", c];
+    }
+    // 先把要用的都读完，再统一写样式：读写穿插会让浏览器每处理一个元素就重算一次样式
+    function applyDecisions(list) {
+      for (const [el] of list) {
+        if (!origBorder.has(el)) { try { const cs = getComputedStyle(el); origBorder.set(el, parseFloat(cs.borderTopWidth) > 0 ? toRgba(cs.borderTopColor) : null); } catch { origBorder.set(el, null); } }
+      }
+      for (const [el, kind, c] of list) mark(el, kind, c);
+    }
+    // 全页扫描（v0.10.2 改成增量）：class 没变、20 秒内看过的不再重复算样式
+    const chipSeen = new WeakMap();   // el -> [class, 上次看的时间]
     function scanChips(W, H, VA) {
       const all = document.body ? document.body.getElementsByTagName("*") : [];
-      const n = Math.min(all.length, 8000);
+      const n = Math.min(all.length, 8000), now = Date.now(), todo = [];
       for (let i = 0; i < n; i++) {
         const el = all[i];
-        if (marked.has(el) || isOurs(el)) continue;
-        const tag = el.tagName;
-        if (tag === "svg" || tag === "path" || tag === "IMG" || tag === "CANVAS" || tag === "VIDEO" || tag === "IFRAME" || tag === "INPUT" || tag === "SELECT" || tag === "OPTION") continue;
-        const cs = getComputedStyle(el);
-        const bgc = cs.backgroundColor;
-        if ((!bgc || bgc === "rgba(0, 0, 0, 0)" || bgc === "transparent") && (!cs.backgroundImage || cs.backgroundImage === "none")) continue;
-        const bg0 = bgOf(cs);
-        if (bg0 && bg0.fade) { if (!isForced(el)) mark(el, "clear", bg0.c); continue; }
-        const c = opaqueBg(cs, 0.5);
-        if (!c) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 40 || r.height < 20 || r.bottom < 0 || r.top > H || r.right < 0 || r.left > W) continue;
-        const area = r.width * r.height;
-        if (area < VA * 0.0012) continue;
-        if (cs.position === "fixed" && el.getAttribute("role") === "dialog") continue;
-        if (el.matches && el.matches(HOLE_SEL)) continue;
-        if (el.querySelector && el.querySelector(HOLE_SEL)) continue;
-        if (isExcluded(el)) continue;
-        if (isHot(el)) continue;
-        if (area >= VA * 0.04) { mark(el, bigKind(area, VA), c); continue; }
-        // 需要有文字或者是圆角块，避免把分隔线、进度条之类的也处理掉
-        const rounded = parseFloat(cs.borderTopLeftRadius) >= 6;
-        if (!rounded && !(el.textContent || "").trim()) continue;
-        mark(el, "chip", c);
+        if (marked.has(el)) continue;
+        const cn = el.getAttribute("class") || "";
+        const seen = chipSeen.get(el);
+        if (seen && seen[0] === cn && now - seen[1] < 20000) continue;
+        if (isOurs(el)) { chipSeen.set(el, [cn, now + 3600000]); continue; }
+        const d = decideEl(el, W, H, VA);
+        if (d === undefined) chipSeen.delete(el); else chipSeen.set(el, [cn, now]);
+        if (d) todo.push(d);
       }
+      applyDecisions(todo);
+    }
+
+    // ---- v0.10.2 快速通道：页面新加的元素 / class 变了的元素，在下一帧画出来之前就处理掉 ----
+    // 以前要等 0.4~1.2 秒的全量扫描，新出现的面板会先闪一下原来的实色
+    const fresh = new Set();
+    let freshRaf = 0, freshT0 = 0;
+    function queueFresh(n) {
+      if (!n || n.nodeType !== 1) return false;
+      if (fresh.size > 400) return true;
+      fresh.add(n);
+      if (!freshRaf) { freshT0 = performance.now(); freshRaf = requestAnimationFrame(flushFresh); }
+      return true;
+    }
+    function flushFresh() {
+      freshRaf = 0;
+      if (!ready || !cfg || !cfg.enabled || !cfg.glass || hideAll || document.hidden) { fresh.clear(); return; }
+      const W = innerWidth, H = innerHeight, VA = W * H;
+      if (!VA) { fresh.clear(); return; }
+      const t0 = performance.now();
+      const list = [], uniq = new Set();
+      let overflow = false;
+      const push = (el) => { if (!uniq.has(el)) { uniq.add(el); list.push(el); } };
+      for (const root of fresh) {
+        if (!root.isConnected || isOurs(root)) continue;
+        push(root);
+        const d = root.getElementsByTagName ? root.getElementsByTagName("*") : [];
+        for (let i = 0; i < d.length; i++) { if (list.length >= 600) { overflow = true; break; } push(d[i]); }
+        if (overflow) break;
+      }
+      fresh.clear();
+      const todo = [];
+      for (const el of list) {
+        if (marked.has(el)) continue;
+        const d = decideEl(el, W, H, VA);
+        if (d) todo.push(d);
+        if (d !== undefined) chipSeen.set(el, [el.getAttribute("class") || "", Date.now()]);
+      }
+      if (todo.length) { applyDecisions(todo); normalizeGlass(); }
+      const dt = performance.now() - t0;
+      glassPerf.fn++; glassPerf.ftotal += dt; if (dt > glassPerf.fmax) glassPerf.fmax = dt;
+      if (todo.length) { const lag = performance.now() - freshT0; glassPerf.delayN++; glassPerf.delayTotal += lag; if (lag > glassPerf.delayMax) glassPerf.delayMax = lag; }
+      if (overflow) { scanUrgent = true; scheduleScan(); }
     }
     // 套在别的毛玻璃面板里面的，只留半透明底色（不用重复模糊）
     function normalizeGlass() {
@@ -1142,10 +1441,10 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
           const hk = host ? baseKind.get(host) : null;
           // 和底下那层同色：它本来就是"看不见"的（比如侧栏里的分组标题、置顶条），跟着变透明，别单独成块
           if (host && hk !== "clear" && sameColor(orig.get(el), orig.get(host)) && !isForced(el)) k = "clear";
-          else if ((k === "panel" || k === "field" || k === "content") && host) {
+          else if ((k === "panel" || k === "field" || k === "content" || k === "dialog" || k === "float") && host) {
             for (let p = host; p && p !== document.documentElement; p = p.parentElement) {
               const bk = marked.has(p) ? baseKind.get(p) : null;
-              if (bk === "panel" || bk === "field" || bk === "content") { k = k === "content" ? "panel" : "inner"; break; }
+              if (bk === "panel" || bk === "field" || bk === "content" || bk === "dialog" || bk === "float") { k = k === "content" ? "panel" : "inner"; break; }
             }
           }
         }
@@ -1219,6 +1518,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       if (!root) return;
       const on = !!(ready && cfg && cfg.enabled && !hideAll);
       root.classList.toggle("agywe-on", on);
+      root.classList.toggle("agywe-glasson", on && !!cfg.glass);
       root.classList.toggle("agywe-shadow", on && !!cfg.textShadow);
       root.classList.toggle("agywe-border", on && cfg.glassBorder !== false);
       const tint = cfg && cfg.glassTintOn ? hexToRgb(cfg.glassTint) : null;
@@ -1233,6 +1533,11 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       root.style.setProperty("--agywe-alpha", String(cfg ? cfg.panelOpacity : .55));
       root.style.setProperty("--agywe-chip", String(cfg && cfg.bubbleOpacity != null ? cfg.bubbleOpacity : .45));
       root.style.setProperty("--agywe-content", String(cfg && cfg.contentOpacity != null ? cfg.contentOpacity : .3));
+      root.style.setProperty("--agywe-dialog", String(cfg && cfg.dialogOpacity != null ? cfg.dialogOpacity : .55));
+      root.style.setProperty("--agywe-float", String(cfg && cfg.floatOpacity != null ? cfg.floatOpacity : .55));
+      root.style.setProperty("--agywe-dblur", (cfg && cfg.dialogBlur != null ? cfg.dialogBlur : 16) + "px");
+      root.style.setProperty("--agywe-fblur", (cfg && cfg.floatBlur != null ? cfg.floatBlur : 16) + "px");
+      root.style.setProperty("--agywe-ring", String(cfg && cfg.composerRing != null ? cfg.composerRing : .12));
       root.style.setProperty("--agywe-halo-a", String(cfg && cfg.textHalo != null ? cfg.textHalo : .6));
       updateTheme(true);
       applyFxCfg();
@@ -1240,6 +1545,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       try { applyTheme(); applyDock(); applyIdle(); } catch (e) { lastErr = String(e && e.message || e); }
       try { noiseApplyCfg(); jumpRefresh(); if (!ccOn()) ccHide(); } catch (e) { lastErr = String(e && e.message || e); }
       scheduleAvatars();
+      zhApply();
       root.style.setProperty("--agywe-blur", (cfg ? cfg.blur : 18) + "px");
       const sig = JSON.stringify([cfg && cfg.glassForce, cfg && cfg.glassExclude]);
       if (sig !== lastGlassSig) { lastGlassSig = sig; clearGlass(); }
@@ -1247,13 +1553,18 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       ensureFrame();
     }
 
-    let scanQueued = false;
+    let scanQueued = false, scanUrgent = false;
     let lastScan = 0;
     function scheduleScan() {
       if (scanQueued) return;
       scanQueued = true;
-      const wait = Math.max(400, 1200 - (Date.now() - lastScan));
-      setTimeout(() => { scanQueued = false; lastScan = Date.now(); try { scanGlass(); updateHoles(); } catch { } }, wait);
+      // 新内容已经由快速通道处理了，这里只是补漏（网格取样 / 输入框 / 侧栏开关），不用太急，也别太频繁
+      // v0.10.5：页面一变就整页重扫，流式输出时每秒一次、每次 30~90 ms，会卡。新内容快速通道已经处理了，补漏扫描最多 2.5 秒一次
+      const wait = Math.max(150, (scanUrgent ? 600 : 2500) - (Date.now() - lastScan));
+      scanUrgent = false;
+      // 补漏扫描放到浏览器空闲时做（最多再等 500 ms），不跟打字、滚动抢同一帧
+      const run = () => { scanQueued = false; lastScan = Date.now(); try { scanGlass(); updateHoles(); } catch { } };
+      setTimeout(() => { if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 500 }); else run(); }, wait);
     }
 
     // =====================================================================
@@ -1547,7 +1858,8 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       for (const [k, el] of av.pool) if (!used.has(k)) { try { el.remove(); } catch { } av.pool.delete(k); }
       av.stats = { list: true, items: list.childElementCount, users: users.length, runs: runs.length, placedU, placedA, noRoom, scroller: !!sc, sr: [Math.round(sr.left), Math.round(sr.top), Math.round(sr.right), Math.round(sr.bottom)], listRect: (() => { const r = list.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; })() };
     }
-    window.addEventListener("scroll", () => { if (av.root || avOn()) scheduleAvatars(); }, { capture: true, passive: true });
+    window.addEventListener("scroll", () => { if (av.root || avOn()) scheduleAvatars(); scheduleScan(); }, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) scheduleScan(); });
 
     // =====================================================================
     // Agent 状态：完成 / 需要你确认 / 出错 → 挂件跳一下、换颜色、冒气泡；最后一个 agent 头像换颜色；壁纸边缘闪一下
@@ -2149,6 +2461,37 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
 
     // ---- 主题跟随壁纸：壁纸页取色发过来，这里按界面深浅换算成毛玻璃色调和强调色 ----
     let palette = null;
+    // ---- v0.10.2 标题栏跟随壁纸：算出窗口右上角按钮那一条底下实际是什么颜色，发给主进程去填 ----
+    let tbLast = null;
+    function tbSync() {
+      try {
+        if (!ready || !cfg || !cfg.enabled || hideAll || (cfg.titleBarMode !== "match" && cfg.titleBarMode !== "clear") || !palette) return;
+        let col = hexArr(palette.tr) || hexArr(palette.dominant);
+        if (!col) return;
+        // 壁纸压暗 / 提亮
+        const dm = Math.max(0, Math.min(0.9, Number(cfg.dim) || 0));
+        const mode = cfg.dimMode || "auto", lighten = mode === "lighten" || (mode === "auto" && darkText === true);
+        if (dm) col = col.map((v) => v * (1 - dm) + (lighten ? 255 : 0) * dm);
+        // 按钮那一条下面盖着的界面层（标题栏毛玻璃等），从下往上叠
+        const layers = [];
+        let st = []; try { st = document.elementsFromPoint(innerWidth - 60, 10); } catch { }
+        for (const el of st) {
+          if (el === document.documentElement || el === document.body) break;
+          if (isOurs(el)) continue;
+          const c = toRgba(getComputedStyle(el).backgroundColor);
+          if (c && c.a > 0.02) layers.push(c);
+        }
+        for (const c of layers.reverse()) col = [c.r, c.g, c.b].map((v, i) => col[i] * (1 - c.a) + v * c.a);
+        const hex = arrHex(col);
+        const y = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2];
+        const sym = y > 150 ? "#1b1b1b" : "#f2f2f2";
+        tbLast = { color: hex, symbol: sym, layers: layers.length };
+        const key = hex + sym;
+        if (key === tbSync.sent) return;
+        tbSync.sent = key;
+        ipcRenderer.send("agywe:tb-color", { color: hex, symbol: sym });
+      } catch { }
+    }
     const hexArr = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || "")); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
     const arrHex = (a) => "#" + a.map((x) => clamp(Math.round(x), 0, 255).toString(16).padStart(2, "0")).join("");
     function rgbToHsl(c) {
@@ -3201,7 +3544,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
         pet: !!(pet && pet.root.isConnected), petTop: !!(pet && (() => { try { return pet.root.matches(":popover-open"); } catch { return false; } })()),
         running: !!run.t0, audio: audio.state, sfx: sfx.ctx ? sfx.ctx.state : "none", avatars: av.stats || null,
         contrast: { on: contrast.on, need: contrast.need, ratio: contrast.ratio }, darkText, dock: !!(dock.root && dock.root.isConnected),
-        lowSpec: !!(cfg && cfg.lowSpec), path: location.pathname
+        lowSpec: !!(cfg && cfg.lowSpec), path: location.pathname, glassPerf: perfSummary()
       };
     }
 
@@ -3557,9 +3900,9 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
         sendContext(true);
         post({ type: "agywe:hideall", on: hideAll }); powerSync(); post({ type: "agywe:winfocus", focused: winFocused });
         diag("wall-ready");
-        setTimeout(() => { try { scanGlass(); updateHoles(); diag("glass-report", { glass: glassReport() }); } catch { } }, 5000);
+        setTimeout(() => { try { scanGlass(); updateHoles(); diag("glass-report", { glass: glassReport(), glassPerf: perfSummary() }); } catch { } }, 5000);
       }
-      else if (d.type === "agywe:config") { audio.boot = false; if (ready) applyCfg(d.config); else if (d.config) { cfg = d.config; ensureFrame(); } }
+      else if (d.type === "agywe:config") { audio.boot = false; if (ready) applyCfg(d.config); else if (d.config) { cfg = d.config; ensureFrame(); zhApply(); } }
       else if (d.type === "agywe:close-settings") toggleSettings(false);
       else if (d.type === "agywe:pick-glass") startPick();
       else if (d.type === "agywe:pick-pet") startPick("pet");
@@ -3573,7 +3916,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       else if (d.type === "agywe:noise-ask") { try { settingsFrame && settingsFrame.contentWindow && settingsFrame.contentWindow.postMessage({ type: "agywe:noise-state", playing: noise.playing, kind: noise.type }, ORIGIN); } catch { } }
       else if (d.type === "agywe:care-test") { toggleSettings(false); const k = String(d.kind || ""); setTimeout(() => careTest(k), 350); }
       else if (d.type === "agywe:outfit") { if (pet && !mood.state && !hideAll) { petAct("spin", 900); petSay("换上「" + String(d.name || "新衣服").slice(0, 16) + "」啦", 2600, "info"); } }
-      else if (d.type === "agywe:palette") { palette = d.palette && typeof d.palette === "object" ? d.palette : null; applyTheme(); try { if (palette) ipcRenderer.send("agywe:palette", palette); } catch { } }
+      else if (d.type === "agywe:palette") { palette = d.palette && typeof d.palette === "object" ? d.palette : null; applyTheme(); setTimeout(tbSync, 300); try { if (palette) ipcRenderer.send("agywe:palette", palette); } catch { } }
       else if (d.type === "agywe:switched" || d.type === "agywe:faved" || d.type === "agywe:paused") onWallAct(d);
       else if (d.type === "agywe:close-quick") toggleQuick(false);
       else if (d.type === "agywe:open-quick") { toggleSettings(false); setTimeout(() => toggleQuick(true), 120); }
@@ -3604,27 +3947,2467 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       if (hkMatch(e, "settings")) { e.preventDefault(); toggleSettings(); }
       if (e.key === "Escape" && settingsFrame) toggleSettings(false);
     }, true);
-    window.addEventListener("resize", () => { try { jumpSched(); if (cc.el) ccUpdate(); } catch { } scheduleScan(); updateHoles(); placePet(); fxResize(); scheduleAvatars(); try { placeDock(); } catch { } }, { passive: true });
+    window.addEventListener("resize", () => { scanUrgent = true; try { jumpSched(); if (cc.el) ccUpdate(); } catch { } scheduleScan(); updateHoles(); placePet(); fxResize(); scheduleAvatars(); try { placeDock(); } catch { } }, { passive: true });
+
+    // =====================================================================
+    // v0.10.3 右上角小图标按钮的诊断：每个按钮本身 / 伪元素 / 子元素 / 兄弟元素的底色都记下来
+    // =====================================================================
+    function iconReport() {
+      const W = innerWidth, out = [];
+      try {
+        for (const el of document.querySelectorAll('button, [role="button"], .agy-button')) {
+          if (out.length >= 24) break;
+          if (isOurs(el)) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 8 || r.width > 64 || r.height > 64 || r.top > 170 || r.bottom < 0 || r.left < W - 420 || r.left > W) continue;
+          const cs = getComputedStyle(el), b = getComputedStyle(el, "::before"), a = getComputedStyle(el, "::after");
+          const kids = [...el.querySelectorAll("*")].slice(0, 8).map((k) => k.tagName + ":" + getComputedStyle(k).backgroundColor).filter((s) => !/rgba\(0, 0, 0, 0\)$/.test(s));
+          const par = el.parentElement;
+          out.push({
+            label: (el.getAttribute("aria-label") || el.getAttribute("title") || "").slice(0, 40),
+            rect: [r.left, r.top, r.width, r.height].map(Math.round),
+            bg: cs.backgroundColor, bgImg: String(cs.backgroundImage).slice(0, 60), shadow: String(cs.boxShadow).slice(0, 60), outline: cs.outlineStyle !== "none" ? cs.outlineColor : "",
+            before: b.content !== "none" ? b.backgroundColor + " " + String(b.boxShadow).slice(0, 30) : "", after: a.content !== "none" ? a.backgroundColor + " " + String(a.boxShadow).slice(0, 30) : "",
+            glass: el.getAttribute("data-agywe-glass") || "", pse: el.getAttribute("data-agywe-pse") || "", hot: el.matches(":hover"),
+            state: PSE_STATE.map((x) => el.getAttribute(x) ? x + "=" + el.getAttribute(x) : "").filter(Boolean).join(","),
+            cls: (el.getAttribute("class") || "").slice(0, 200), kids,
+            parent: par ? (par.getAttribute("class") || "").slice(0, 60) + " / " + getComputedStyle(par).backgroundColor : "",
+            sib: par ? [...par.children].filter((s) => s !== el).slice(0, 4).map((s) => { const q = s.getBoundingClientRect(); return s.tagName + ":" + getComputedStyle(s).backgroundColor + "@" + [q.left, q.top, q.width, q.height].map(Math.round).join(","); }) : []
+          });
+        }
+      } catch { }
+      return out;
+    }
+    // v0.10.6 浮层诊断：页面上每个菜单 / 弹窗 / 提示气泡的底色、被当成什么、鼠标在不在上面
+    function overlayReport() {
+      const out = [];
+      try {
+        for (const el of document.querySelectorAll(DIALOG_SEL)) {
+          if (out.length >= 16 || isOurs(el)) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 40 || r.height < 20) continue;
+          const chain = [];
+          for (let p = el, n = 0; p && n < 4; p = p.firstElementChild, n++) {
+            const cs = getComputedStyle(p);
+            chain.push({ tag: p.tagName, cls: (p.getAttribute("class") || "").slice(0, 80), bg: cs.backgroundColor, bf: cs.backdropFilter, glass: p.getAttribute("data-agywe-glass") || "", hot: p.matches(":hover") });
+          }
+          out.push({ role: el.getAttribute("role") || "", kind: overlayKind(el), rect: [r.left, r.top, r.width, r.height].map(Math.round), chain });
+        }
+      } catch { }
+      return out;
+    }
+    // v0.10.4 输入框外圈的诊断：从输入框往上 9 层，每层的边框 / 阴影 / 描边 / 伪元素
+    function composerReport() {
+      const out = [];
+      try {
+        const f = [...document.querySelectorAll(FIELD_SEL)].find((x) => { if (isOurs(x)) return false; const r = x.getBoundingClientRect(); return r.width > 200 && r.top > innerHeight * 0.5; });
+        for (let el = f, n = 0; el && el !== document.body && n < 9; el = el.parentElement, n++) {
+          const cs = getComputedStyle(el), b = getComputedStyle(el, "::before"), a = getComputedStyle(el, "::after");
+          const r = el.getBoundingClientRect();
+          const pe = (p) => p.content && p.content !== "none" ? [p.backgroundColor, p.borderTopWidth + " " + p.borderTopColor, String(p.boxShadow).slice(0, 80)].join(" | ") : "";
+          out.push({ tag: el.tagName, cls: (el.getAttribute("class") || "").slice(0, 120), rect: [r.left, r.top, r.width, r.height].map(Math.round), bg: cs.backgroundColor, glass: el.getAttribute("data-agywe-glass") || "",
+            border: cs.borderTopWidth + " " + cs.borderTopStyle + " " + cs.borderTopColor, shadow: String(cs.boxShadow).slice(0, 160), outline: cs.outlineStyle !== "none" ? cs.outlineWidth + " " + cs.outlineColor : "", pad: cs.paddingTop, before: pe(b), after: pe(a) });
+        }
+      } catch { }
+      return out;
+    }
+    // 鼠标从一个按钮上移开：它的悬停颜色没了，马上再看一眼（以前要等下一轮补漏扫描）
+    let hotBtn = null, iconRepAt = 0;
+    try {
+      document.addEventListener("pointerover", (e) => {
+        const t = e.target;
+        const b = t && t.closest ? t.closest('button, [role="button"], .agy-button') : null;
+        if (b === hotBtn) return;
+        const prev = hotBtn; hotBtn = b;
+        if (prev && prev.isConnected && ready && cfg && cfg.enabled && cfg.glass && !hideAll) setTimeout(() => { try { pseSig.delete(prev); queueFresh(prev); scheduleScan(); } catch { } }, 160);
+      }, { capture: true, passive: true });
+      // 点了右上角的小按钮（比如右侧面板开关）：2.5 秒后自动记一份毛玻璃报告，20 秒最多一次
+      document.addEventListener("pointerdown", (e) => {
+        try {
+          if (e.clientY > 170 || e.clientX < innerWidth - 420 || Date.now() - iconRepAt < 20000) return;
+          const t = e.target, b = t && t.closest ? t.closest('button, [role="button"], .agy-button') : null;
+          if (!b || isOurs(b)) return;
+          iconRepAt = Date.now();
+          setTimeout(() => { try { pseSig = new WeakMap(); scanGlass(); diag("glass-report", { glass: glassReport(), glassPerf: perfSummary(), why: "icon-click" }); } catch { } }, 2500);
+        } catch { }
+      }, { capture: true, passive: true });
+    } catch { }
+
+    // =====================================================================
+    // v0.10.3 界面汉化（插件内置）：只换界面上的固定文字（按钮、菜单、标题、提示），
+    // 整段文字必须和词表完全对上才换，对话内容、代码、输入框、编辑器里的字都不碰。
+    // 不改 Antigravity 的任何文件；关掉「界面汉化」会把换过的字还原。
+    // =====================================================================
+    const ZH = {
+      // 顶部菜单
+      "File": "文件", "Edit": "编辑", "View": "视图", "Window": "窗口", "Help": "帮助", "Workspace": "工作区", "Workspaces": "工作区",
+      "Undo": "撤销", "Redo": "重做", "Cut": "剪切", "Copy": "复制", "Paste": "粘贴", "Select All": "全选", "Delete": "删除", "Find": "查找", "Replace": "替换",
+      "Reload": "重新加载", "Force Reload": "强制重新加载", "Toggle Developer Tools": "开发者工具", "Actual Size": "实际大小", "Zoom In": "放大", "Zoom Out": "缩小", "Reset Zoom": "重置缩放",
+      "Toggle Full Screen": "全屏", "Enter Full Screen": "进入全屏", "Exit Full Screen": "退出全屏", "Minimize": "最小化", "Maximize": "最大化", "Restore": "还原", "Zoom": "缩放", "Close": "关闭",
+      "Close Window": "关闭窗口", "New Window": "新建窗口", "Quit": "退出", "Quit Antigravity": "退出 Antigravity", "About": "关于", "About Antigravity": "关于 Antigravity",
+      "Check for Updates": "检查更新", "Check for Updates...": "检查更新…", "Check for updates": "检查更新", "Restart to Update": "重启以更新", "Preferences": "偏好设置", "Keyboard Shortcuts": "键盘快捷键", "Keyboard shortcuts": "键盘快捷键",
+      // 侧边栏
+      "Sidebar": "侧边栏", "Toggle Sidebar": "切换侧边栏", "Toggle sidebar": "切换侧边栏", "Toggle Side Panel": "切换侧边面板", "Toggle side panel": "切换侧边面板", "Toggle Panel": "切换面板", "Side Panel": "侧边面板",
+      "Open Sidebar": "打开侧边栏", "Close Sidebar": "关闭侧边栏", "Collapse Sidebar": "收起侧边栏", "Expand Sidebar": "展开侧边栏", "Toggle Terminal": "切换终端",
+      "New Conversation": "新建对话", "New conversation": "新建对话", "New Chat": "新建对话", "New chat": "新建对话", "Automations": "自动化任务", "Automation": "自动化任务", "New Automation": "新建自动化任务",
+      "Customizations": "技能与自定义", "Customization": "技能与自定义", "Projects": "项目管理", "Project": "项目", "Conversations": "对话管理", "Conversation": "对话", "Settings": "系统设置",
+      "New Project": "新建项目", "Create Project": "创建项目", "Create project": "创建项目", "No Project": "未关联项目", "No project": "未关联项目", "Outside of project": "未关联项目", "Outside of Project": "未关联项目",
+      "Inbox": "收件箱", "Agent Manager": "Agent 管理器", "Search": "搜索", "Search conversations": "搜索对话", "Search...": "搜索…", "Recent": "最近", "Recents": "最近", "Pinned": "已置顶", "Archived": "已归档",
+      "Today": "今天", "Yesterday": "昨天", "Previous 7 Days": "过去 7 天", "Previous 7 days": "过去 7 天", "Previous 30 Days": "过去 30 天", "Previous 30 days": "过去 30 天", "Older": "更早", "This Week": "本周", "This week": "本周", "Last Week": "上周",
+      "Pin": "置顶", "Unpin": "取消置顶", "Rename": "重命名", "Archive": "归档", "Unarchive": "取消归档", "Duplicate": "复制一份", "Move to project": "移到项目", "Delete conversation": "删除对话", "Rename conversation": "重命名对话",
+      "Show more": "显示更多", "Show less": "收起", "Show all": "显示全部", "See all": "查看全部", "View all": "查看全部", "More": "更多", "More actions": "更多操作", "Options": "选项", "Menu": "菜单",
+      // 对话
+      "Load older messages": "加载更早消息", "Load more": "加载更多", "No older messages": "没有更早的消息", "Conversation Log": "对话日志", "You said": "您说", "Agent said": "Agent 回复", "You": "您",
+      "Ask anything, @ to mention, / for actions": "向 Agent 提问，键入 @ 引用上下文，键入 / 调出快捷操作", "Ask anything, @ to mention, / for actions.": "向 Agent 提问，键入 @ 引用上下文，键入 / 调出快捷操作",
+      "Ask anything": "向 Agent 提问", "Send": "发送", "Send message": "发送消息", "Send now": "立即发送", "Queue": "排队等待", "Queued": "排队中", "Stop": "停止", "Stop generating": "停止生成", "Cancel": "取消",
+      "Retry": "重试", "Regenerate": "重新生成", "Edit message": "编辑消息", "Copy message": "复制消息", "Copied": "已复制", "Copied!": "已复制", "Copy code": "复制代码", "Copy link": "复制链接", "Copy path": "复制路径",
+      "Thinking": "正在思考", "Thinking...": "正在思考…", "Thought": "已思考", "Working": "正在工作", "Working...": "正在工作…", "Running": "正在运行", "Running...": "正在运行…", "Agent is working": "Agent 正在执行", "Agent working": "Agent 正在执行",
+      "Analyzed": "已分析", "Analyzing": "正在分析", "Edited": "已编辑", "Editing": "正在编辑", "Created": "已创建", "Creating": "正在创建", "Read": "已读取", "Reading": "正在读取", "Viewed": "已查看", "Searched": "已搜索", "Searching": "正在搜索",
+      "Ran": "已运行", "Ran command": "已运行命令", "Run command": "运行命令", "Started": "已启动", "Launched": "已启动", "Completed": "已完成", "Complete": "已完成", "Done": "完成", "Failed": "失败", "Error": "错误", "Cancelled": "已取消", "Canceled": "已取消",
+      "Pending": "等待中", "Waiting": "等待中", "Waiting for approval": "等待批准", "Approve": "批准", "Reject": "拒绝", "Deny": "拒绝", "Allow": "允许", "Allow once": "仅允许这一次", "Always allow": "始终允许", "Accept": "接受", "Accept all": "全部接受", "Reject all": "全部拒绝",
+      "Review": "审阅", "Review changes": "审阅改动", "Changes": "改动", "Undo changes": "撤销改动", "Revert": "还原", "Checkpoint": "检查点", "Restore checkpoint": "恢复到检查点",
+      "Context": "上下文", "Add context": "添加上下文", "Mentions": "引用", "Attach": "附件", "Attach file": "添加附件", "Attach image": "添加图片", "Add image": "添加图片", "Upload": "上传", "Drop files here": "把文件拖到这里",
+      "Model": "模型", "Models": "模型", "Select model": "选择模型", "Select a model": "选择模型", "No Model Selected": "未选择模型", "No model selected": "未选择模型",
+      "High": "高", "Medium": "中", "Low": "低", "XHigh": "超高", "Extra High": "超高", "Max": "最高", "Fast": "极速", "Fast mode": "极速模式", "Fast Mode": "极速模式",
+      "Plan": "规划", "Planning": "规划", "Plan mode": "规划模式", "Ask": "提问", "Voice": "音色", "Voice mode": "语音模式", "Voice Mode": "语音模式", "Microphone": "麦克风",
+      "This site can't be reached": "无法访问此网站", "This site can’t be reached": "无法访问此网站", "Open in browser": "在浏览器中打开", "Open in editor": "在编辑器中打开", "Open file": "打开文件", "Open folder": "打开文件夹", "Open Folder": "打开文件夹",
+      "Terminal": "终端", "Browser": "浏览器", "Editor": "编辑器", "Files": "文件", "Explorer": "资源管理器", "Problems": "问题", "Output": "输出", "Preview": "预览", "Artifacts": "产出物", "Artifact": "产出物", "Tasks": "任务", "Task": "任务",
+      "File Viewer": "文件查看器", "Close tab": "关闭标签页", "Close all": "全部关闭", "Close others": "关闭其他", "Split right": "向右拆分", "New Tab": "新建标签页", "Go back": "后退", "Go forward": "前进", "Refresh": "刷新",
+      // 技能与自定义
+      "Marketplace": "插件市场", "Installed": "已安装", "Plugins": "扩展插件", "Plugin": "扩展插件", "Skills & Rules": "技能与规则", "Skills": "技能", "Skill": "技能", "Rules": "规则", "Rule": "规则",
+      "Workflows": "工作流", "Workflow": "工作流", "MCP Servers": "MCP 服务器", "MCP servers": "MCP 服务器", "Memories": "记忆", "Knowledge": "知识库", "Built In": "内置", "Built-in": "内置", "Global": "全局", "All": "全部",
+      "Install": "安装", "Uninstall": "卸载", "Update": "更新", "Configure": "配置", "Connect": "连接", "Connected": "已连接", "Disconnect": "断开连接", "Enable": "启用", "Disable": "停用", "Enabled": "已启用", "Disabled": "已停用",
+      "Add": "添加", "Remove": "移除", "Create": "新建", "Browse": "浏览", "Learn more": "了解详情", "Details": "详情", "Overview": "概览", "Author": "作者", "Version": "版本", "Installing...": "正在安装…", "Uninstalling...": "正在卸载…",
+      // 设置
+      "General": "常规设置", "Appearance": "外观", "Theme": "主题", "Light": "浅色", "Dark": "深色", "System": "系统", "Language": "语言", "Notifications": "通知", "Privacy": "隐私", "Advanced": "高级", "Account": "账号", "Profile": "个人资料",
+      "Sign in": "登录", "Sign In": "登录", "Sign out": "退出登录", "Sign Out": "退出登录", "Log out": "退出登录", "Layout": "布局", "Layout mode": "界面布局模式", "Layout Mode": "界面布局模式",
+      "Knowledge Work": "知识工作", "Knowledge work": "知识工作", "Software Engineering": "软件工程", "Software engineering": "软件工程",
+      "Not set": "未设置", "Change": "更改", "Save": "保存", "Saved": "已保存", "Saving...": "正在保存…", "Reset": "重置", "Apply": "应用", "OK": "确定", "Confirm": "确认", "Yes": "是", "No": "否", "Back": "返回", "Next": "下一步", "Continue": "继续", "Skip": "跳过",
+      "On": "开", "Off": "关", "Default": "默认", "Custom": "自定义", "None": "无", "Auto": "自动", "Loading": "正在加载", "Loading...": "正在加载…", "Refreshing...": "正在刷新…", "Unknown": "未知",
+      "Feedback": "反馈", "Send feedback": "发送反馈", "Report issue": "报告问题", "Report an issue": "报告问题", "Documentation": "文档", "Docs": "文档", "Changelog": "更新日志", "Release notes": "更新说明", "What's new": "新功能",
+      // 用量 / 套餐
+      "Usage": "用量", "Gemini models": "Gemini 模型", "Gemini Models": "Gemini 模型", "Weekly limit": "每周限额", "Weekly Limit": "每周限额", "5-hour limit": "5 小时限额", "5 hour limit": "5 小时限额", "Daily limit": "每日限额",
+      "View plans": "查看套餐", "View Plans": "查看套餐", "Upgrade": "升级", "Upgrade plan": "升级套餐", "Plans": "套餐", "Billing": "账单", "Enable overages": "启用超额抵扣", "Enable Overages": "启用超额抵扣", "Enable overage": "启用超额抵扣",
+      "Today's usage": "今日用量", "This month": "本月", "remaining": "剩余", "left": "剩余", "used": "已用",
+      // 其他
+      "Schedule": "计划", "Trigger": "触发条件", "Triggers": "触发条件", "Runs": "运行记录", "Last run": "上次运行", "Next run": "下次运行", "Run now": "立即运行", "Pause": "暂停", "Resume": "继续", "Paused": "已暂停", "Active": "进行中",
+      "Name": "名称", "Description": "描述", "Status": "状态", "Type": "类型", "Date": "日期", "Size": "大小", "Path": "路径", "Location": "位置", "Owner": "所有者", "Updated": "更新于", "Created at": "创建于",
+      "Share": "分享", "Download": "下载", "Export": "导出", "Import": "导入", "Expand": "展开", "Collapse": "收起", "Expand all": "全部展开", "Collapse all": "全部收起", "Filter": "筛选", "Sort": "排序", "Clear": "清除", "Clear all": "全部清除",
+      // v0.10.4 补充（设置页、对话里的按钮提示等）
+      "Typeahead menu": "联想菜单", "Display Options": "显示选项", "Create New Project": "新建项目", "Archive conversation": "归档对话", "Pin conversation": "置顶对话", "Unpin conversation": "取消置顶对话", "More options": "更多选项", "Announcements and tips": "公告与提示", "Message input": "消息输入框", "Record voice memo": "录制语音", "Go Back": "后退", "Go Forward": "前进", "Search Conversations": "搜索对话", "Start Voice mode": "开始语音模式", "Start voice mode": "开始语音模式", "Edits the conversation title": "编辑对话标题", "Toggle Overview Panel": "切换概览面板", "New tab": "新建标签页", "Custom View": "自定义视图", "Enter a URL (e.g. http://localhost:8080)": "输入网址（例如 http://localhost:8080）", "Address bar": "地址栏", "Inspect element to comment": "选中页面元素来评论", "Add screenshot to conversation": "把截图加入对话", "Open in external browser": "在外部浏览器中打开", "Conversation turns": "对话轮次", "Response actions": "回复操作", "Good response": "回答得好", "Bad response": "回答得不好", "Undo to this point": "撤销到这里", "Scroll to Bottom": "滚动到底部", "Scroll to bottom": "滚动到底部", "Maximize Pane": "最大化窗格", "Restore Pane": "还原窗格", "Not in Project": "未关联项目", "Give Feedback": "提交反馈", "Give feedback": "提交反馈", "Manage your plan, credentials, and general preferences.": "管理套餐、凭据和常规偏好设置。", "Enable Telemetry": "发送使用数据", "Marketing Emails": "营销邮件", "By using this app, you agree to its": "使用本应用即表示你同意其", "Terms of Service": "服务条款", "Privacy Policy": "隐私政策", "Interface Layout": "界面布局", "Global Permissions": "全局权限", "Configure global allowed and denied resource permissions.": "配置全局允许和拒绝的资源权限。", "Permission preset": "权限预设", "Controls the actions the agent can take.": "控制 Agent 可以执行哪些操作。", "Tool permissions": "工具权限", "Modify permissions for file, terminal, and MCP tools.": "修改文件、终端和 MCP 工具的权限。", "Network access rules": "网络访问规则", "Configure allowed and denied URLs for reading.": "配置允许和禁止读取的网址。", "Input Box": "输入框", "Queued messages": "排队消息", "Configure when follow-up messages are sent.": "设置后续消息什么时候发送。", "Queue until after the current turn.": "等当前这一轮结束后再发送。", "Interrupt the agent and send immediately.": "打断 Agent，立即发送。", "Send Immediately": "立即发送", "Send immediately": "立即发送", "Choose which key sends a message in the chat composer.": "选择在输入框里用哪个键发送消息。", "Press Enter to send, Shift+Enter for a new line.": "按 Enter 发送，Shift+Enter 换行。", "Press Ctrl+Enter to send, Enter for a new line.": "按 Ctrl+Enter 发送，Enter 换行。", "The voice used in Voice mode. Powered by Gemini Live.": "语音模式下使用的声音。由 Gemini Live 驱动。", "Input device for voice mode and dictation.": "语音模式和听写使用的输入设备。", "System default": "系统默认", "How loud Antigravity's voice is.": "Antigravity 说话的音量。", "How loud Antigravity’s voice is.": "Antigravity 说话的音量。", "Voice volume": "语音音量", "Configure the agent's visual theme and display preferences.": "配置 Agent 的界面主题和显示偏好。", "Configure the agent’s visual theme and display preferences.": "配置 Agent 的界面主题和显示偏好。", "Conversation Steps": "对话步骤", "Choose how much detail is shown during a conversation.": "选择对话过程中显示多少细节。", "Font Size": "字号", "Font size": "字号", "Font": "字体", "Font Family": "字体", "Dark Theme": "深色主题", "Light Theme": "浅色主题", "Default Dark": "默认深色", "Default Light": "默认浅色", "Background color picker": "背景色选择器", "Foreground color picker": "前景色选择器", "Accent color picker": "强调色选择器", "Code Preview": "代码预览", "Advanced Settings": "高级设置", "Advanced settings": "高级设置", "Manage your notification preferences.": "管理通知偏好设置。", "Enable Notifications for Agent": "Agent 通知", "Enable Sounds for Agent": "Agent 提示音", "Set the volume of agent sounds.": "设置 Agent 提示音的音量。", "Chime volume": "提示音音量", "Configure default behaviors, skills, and MCP servers.": "配置默认行为、技能和 MCP 服务器。", "Token Usage": "Token 用量", "No token data available.": "暂无 Token 数据。", "Loading workspace customizations...": "正在加载工作区自定义项…", "Loading workspace customizations…": "正在加载工作区自定义项…", "Build With Google Plugins": "Build With Google 插件", "Built-in Browser": "内置浏览器", "Open Links In": "链接打开方式", "Choose where links open by default when clicked.": "选择点击链接时默认在哪里打开。", "External Browser": "外部浏览器", "Download Location": "下载位置", "Change…": "更改…", "Change...": "更改…", "Browsing History": "浏览记录", "Browser Subagent": "浏览器子 Agent", "Browser Actuation Rules": "浏览器操作规则", "Manage Antigravity app settings.": "管理 Antigravity 应用设置。", "Application": "应用", "Shortcuts": "快捷键", "Prevent Sleep": "阻止休眠", "Prevent the computer from sleeping while the app is running.": "应用运行时阻止电脑进入睡眠。", "Keep In Menu Bar": "常驻托盘", "Keep in Menu Bar": "常驻托盘", "Keep the app accessible from the menu bar and running in the background when all windows are closed.": "关闭所有窗口后，应用仍留在托盘里后台运行。", "Remote Control": "远程控制", "Enable Remote Control": "启用远程控制", "Work with local agents from another device.": "从另一台设备使用这台电脑上的 Agent。", "Notification Settings": "通知设置", "To modify notification settings, open your operating system's system preferences.": "要修改通知设置，请打开系统设置。", "To modify notification settings, open your operating system’s system preferences.": "要修改通知设置，请打开系统设置。", "Open System Preferences": "打开系统设置", "App version": "应用版本", "App Version": "应用版本", "Feedback Type": "反馈类型", "Bug Report": "问题反馈", "Feature Request": "功能建议", "Auth and Billing": "登录与账单", "Other": "其他", "Submit": "提交", "Show plan": "查看计划", "Steps": "步骤", "Compact": "简洁", "Detailed": "详细", "Verbose": "完整", "Minimal": "极简", "Expanded": "展开", "Collapsed": "收起", "Permissions": "权限", "Allowed": "允许", "Denied": "禁止", "Add rule": "添加规则", "Interface": "界面", "Display": "显示", "Sounds": "声音", "Volume": "音量", "Shortcut": "快捷键", "Keybindings": "快捷键", "Command": "命令", "Reset to default": "恢复默认", "Reset to Default": "恢复默认", "Learn More": "了解详情", "Manage": "管理", "Credits": "额度", "Overages": "超额抵扣", "Credentials": "凭据", "Telemetry": "使用数据", "Upload image": "上传图片", "Paste image": "粘贴图片", "Dictation": "听写", "Start dictation": "开始听写", "Stop dictation": "停止听写", "Stop recording": "停止录音", "Mute": "静音", "Unmute": "取消静音", "Open": "打开", "Close panel": "关闭面板", "Open Settings": "打开设置", "Open settings": "打开设置", "Back to conversation": "返回对话", "New Window ": "新建窗口", "Agent Permissions": "Agent 权限", "Plan usage": "套餐用量", "Workspace customizations": "工作区自定义项", "Global customizations": "全局自定义项", "Add MCP Server": "添加 MCP 服务器", "Add MCP server": "添加 MCP 服务器", "Add Skill": "添加技能", "Add skill": "添加技能", "Add Rule": "添加规则", "No results": "没有结果", "No results found": "没有找到结果", "No conversations": "还没有对话", "No conversations yet": "还没有对话", "Untitled": "未命名", "Untitled conversation": "未命名对话", "Hide": "隐藏", "Show": "显示", "Hide details": "隐藏详情", "Show details": "显示详情", "View details": "查看详情", "Open file in editor": "在编辑器中打开文件", "Accept changes": "接受改动", "Reject changes": "拒绝改动", "Keep": "保留", "Discard": "放弃", "Discard changes": "放弃改动", "Apply changes": "应用改动", "Diff": "差异", "View diff": "查看差异", "Terms": "条款",
+      "Warning": "警告", "Info": "提示", "Success": "成功", "Something went wrong": "出了点问题", "Try again": "重试", "Dismiss": "关闭", "Got it": "知道了", "Not now": "以后再说", "Later": "稍后",
+      // v0.10.5：从 Antigravity 界面代码里整理出来的全部界面文字（后面的同名条目覆盖前面的）
+      "% left": "% 剩余",
+      "(Optional) Tell us more or type your reason...": "（可选）补充说明或填写原因…",
+      "(empty)": "（空）",
+      "/ 1M tokens": "/ 100 万 token",
+      "// Greet a user by name": "// 按名字向用户问好",
+      "1 Draft": "1 份草稿",
+      "1. Accessibility": "1. 辅助功能",
+      "14 days": "14 天",
+      "2. Screen Recording": "2. 屏幕录制",
+      "21 days": "21 天",
+      "2x playback speed": "2 倍速播放",
+      "5h limit": "5 小时限额",
+      "7 days": "7 天",
+      "A chunk is a section of the page. Long pages are chunked so that only the sections that are relevant to your query are read.": "分块是页面的一个片段。长页面会被分成多块，只读取和你的问题相关的部分。",
+      "A comma-separated list like org-a, org-b, or * for all.": "用逗号分隔，例如 org-a, org-b，或者填 * 表示全部。",
+      "A comma-separated list like repo-a, repo-b, or * for all.": "用逗号分隔，例如 repo-a, repo-b，或者填 * 表示全部。",
+      "A few things to know, and a couple settings to review.": "有几件事需要了解，还有几个设置需要确认。",
+      "A group with this name already exists.": "已经有同名的分组了。",
+      "A label for this computer when you connect from another device. Changing it reconnects.": "从另一台设备连接时显示的这台电脑的名称。修改后会重新连接。",
+      "A new version is available.": "有新版本可用。",
+      "A nickname for identifying this application in the companion website. Changing this will restart the connection.": "在配套网站上用来识别这个应用的昵称。修改后会重新连接。",
+      "A project with this name already exists.": "已经有同名的项目了。",
+      "A shell setup script run before every command the agent executes.": "Agent 每次执行命令前都会先运行的 Shell 初始化脚本。",
+      "A snapshot was saved before running. To restore your previous output:": "运行前已保存快照。要恢复之前的输出：",
+      "AI Credits Used to Generate Response": "生成回复所用的 AI 额度",
+      "AI Credits are used when you've exceeded your model quota. Keep track of your current AI Credits in the": "超出模型配额后会使用 AI 额度。当前 AI 额度可以在这里查看：",
+      "Abandoned": "已放弃",
+      "Aborted": "已中止",
+      "About embedding": "关于嵌入",
+      "Accent": "强调色",
+      "Accept Step": "接受这一步",
+      "Access grants": "访问授权",
+      "Access restricted": "访问受限",
+      "Access rules": "访问规则",
+      "Accessibility": "辅助功能",
+      "Account connected.": "账号已连接。",
+      "Account connection was not completed.": "账号没有连接成功。",
+      "Accounts": "账号",
+      "Accounts tab": "账号标签页",
+      "Action required": "需要你处理",
+      "Actions": "操作",
+      "Active Skills": "已启用的技能",
+      "Active Tasks & Conversations:": "进行中的任务和对话：",
+      "Actual behavior": "实际表现",
+      "Add Context": "添加上下文",
+      "Add Handler": "添加处理程序",
+      "Add Hook Card": "添加钩子卡片",
+      "Add MCP": "添加 MCP",
+      "Add MCP Servers": "添加 MCP 服务器",
+      "Add Model": "添加模型",
+      "Add New Handler to": "添加新的处理程序到",
+      "Add Shortcut": "添加快捷键",
+      "Add Terminal": "添加终端",
+      "Add account": "添加账号",
+      "Add anyway": "仍然添加",
+      "Add files": "添加文件",
+      "Add filter": "添加筛选条件",
+      "Add inline comment": "添加行内评论",
+      "Add note": "添加备注",
+      "Add schedule": "添加计划",
+      "Add to Chat": "加入对话",
+      "Add to Chat/Quote": "加入对话 / 引用",
+      "Add trigger": "添加触发条件",
+      "Added": "已添加",
+      "Added (Staged)": "已添加（已暂存）",
+      "Address bar suggestions": "地址栏建议",
+      "Admin escalation": "管理员升级",
+      "After": "之后",
+      "Agent Edits": "Agent 改动",
+      "Agent Hooks Configuration": "Agent 钩子配置",
+      "Agent ID:": "Agent ID：",
+      "Agent can": "Agent 可以",
+      "Agent can retrieve console logs from the browser and return it for further processing.": "Agent 可以读取浏览器的控制台日志，交回来做进一步处理。",
+      "Agent can run": "Agent 可以运行",
+      "Agent can scroll on browser pages to access more content.": "Agent 可以在浏览器页面上滚动，查看更多内容。",
+      "Agent options": "Agent 选项",
+      "Agent terminated due to error": "Agent 因出错已终止",
+      "Agent:": "Agent：",
+      "Agents": "Agent",
+      "Agents created by": "Agent 创建者",
+      "All Files": "全部文件",
+      "All Workspaces": "全部工作区",
+      "All active Antigravity shortcuts and user keybinding overrides are managed directly by VS Code.": "Antigravity 的所有快捷键和用户自定义的按键绑定都由 VS Code 直接管理。",
+      "All agents": "全部 Agent",
+      "All runs": "全部运行记录",
+      "All tools (*)": "全部工具（*）",
+      "Allow Google to collect and use your Interactions data, subject to the": "允许 Google 收集和使用你的交互数据，遵守",
+      "Allow creating issues and grant access to specific issues.": "允许创建 Issue，并授予对指定 Issue 的访问权限。",
+      "Allow opening pull requests and grant access to specific PRs.": "允许发起 Pull Request，并授予对指定 PR 的访问权限。",
+      "Allow reading workflow runs (list, view, watch) across the whole repository.": "允许读取整个仓库的工作流运行记录（列表、查看、跟踪）。",
+      "Allow/deny agent browser actuation access to specific URLs.": "允许或禁止 Agent 在指定网址上操作浏览器。",
+      "Allow/deny agent browser file downloads from specific sites.": "允许或禁止 Agent 从指定网站下载文件。",
+      "Allow/deny agent command execution outside the sandbox.": "允许或禁止 Agent 在沙盒外执行命令。",
+      "Allow/deny agent read access to specific URLs or domains.": "允许或禁止 Agent 读取指定网址或域名。",
+      "Allow/deny agent read access to specific files or directories.": "允许或禁止 Agent 读取指定文件或目录。",
+      "Allow/deny agent write access to specific files or directories.": "允许或禁止 Agent 写入指定文件或目录。",
+      "Allow/deny specific terminal commands.": "允许或禁止指定的终端命令。",
+      "Also includes": "还包括",
+      "Always Proceed": "始终继续",
+      "Always open": "始终打开",
+      "Amend": "修改提交",
+      "Amend succeeded": "修改提交成功",
+      "An agent is using the built-in browser. Clearing its data signs the agent out of sites and may interrupt its task.": "有 Agent 正在使用内置浏览器。清除它的数据会让 Agent 退出各网站的登录，可能打断它的任务。",
+      "An error occurred while submitting your feedback. Please try again.": "提交反馈时出错了，请重试。",
+      "An error was thrown.": "出错了。",
+      "Annotation": "批注",
+      "Antigravity (AGY) Style": "Antigravity（AGY）风格",
+      "Antigravity Interactive HTML": "Antigravity 交互式 HTML",
+      "Antigravity would like to use the browser.": "Antigravity 想要使用浏览器。",
+      "Any error messages": "看到的错误信息",
+      "Any error messages seen when trying to log in": "登录时看到的错误信息",
+      "Any relevant information": "其他相关信息",
+      "Any time": "任意时间",
+      "App": "应用",
+      "App update required": "需要更新应用",
+      "Approved": "已批准",
+      "Apps connected to your account": "已连接到你账号的应用",
+      "Archive Conversation": "归档对话",
+      "Archive This Conversation": "归档这个对话",
+      "Archive Workspace": "归档工作区",
+      "Archive project": "归档项目",
+      "Archived Only": "只看已归档",
+      "Are you sure you want to delete": "确定要删除",
+      "Are you sure you want to delete the": "确定要删除这个",
+      "Are you sure you want to delete this conversation? This action cannot be undone.": "确定要删除这个对话吗？删除后无法恢复。",
+      "Are you sure you want to delete this side question? This action cannot be undone.": "确定要删除这个旁支提问吗？删除后无法恢复。",
+      "Artifact Comments": "产出物评论",
+      "Artifact Viewer": "产出物查看器",
+      "Artifact updated by agent": "产出物已被 Agent 更新",
+      "Artifacts like Google Docs, PDFs, Office documents (Word, Excel, PowerPoint), etc. Everything else the agent creates is under Artifacts.": "Google 文档、PDF、Office 文档（Word、Excel、PowerPoint）之类的产出物。Agent 生成的其他内容都在「产出物」里。",
+      "Ask a quick question without interrupting the main conversation.": "不打断主对话，快速问一个问题。",
+      "Ask a side question without interrupting the main conversation": "不打断主对话，问一个旁支问题",
+      "Ask about your code or any topic, get clear answers.": "问问你的代码或任何话题，得到清楚的回答。",
+      "Ask before sensitive operations.": "敏感操作前先询问。",
+      "Ask questions, report issues, and discuss features": "提问、报告问题、讨论功能",
+      "Ask the agent to diagnose and fix this server": "让 Agent 诊断并修复这个服务器",
+      "Ask to retry": "请求重试",
+      "At Mention Code Block": "@ 引用代码块",
+      "At mention code block": "@ 引用代码块",
+      "Attach Antigravity server logs": "附上 Antigravity 服务器日志",
+      "Attach a screenshot (optional)": "附上截图（可选）",
+      "Attach terminal output": "附上终端输出",
+      "Attaching logs requires an email address": "附上日志需要填写邮箱地址",
+      "Attackers might be able to see the images you're looking at on this site and trick you by modifying them.": "攻击者可能看得到你在这个网站上看的图片，并通过修改图片来欺骗你。",
+      "Attackers might be trying to steal your information from": "攻击者可能正在试图窃取你在这个网站上的信息：",
+      "Audio attachment": "音频附件",
+      "Authenticate": "验证身份",
+      "Authenticated as": "已验证身份：",
+      "Authenticating...": "正在验证身份…",
+      "Authentication Required": "需要验证身份",
+      "Authentication expired": "身份验证已过期",
+      "Authorization code": "授权码",
+      "Auto (detected)": "自动（已检测）",
+      "Auto Pin": "自动置顶",
+      "Auto-assignment not configured": "没有配置自动分配",
+      "Auto-starts and auto-stops the Antigravity Custom Theme & Live Wallpaper Engine daemon alongside Antigravity.": "随 Antigravity 一起自动启动和停止 Antigravity 自定义主题与动态壁纸引擎的后台进程。",
+      "Automated safeguards help to protect your conversations from insecure or unsafe content. That being said, users should be aware of potential agentic risks, including data exfiltration.": "自动防护机制会帮你挡住不安全的内容。不过还是要注意 Agent 可能带来的风险，比如数据外泄。",
+      "Automatic Check for Updates": "自动检查更新",
+      "Automatically decide if commands run.": "自动决定命令要不要运行。",
+      "Automatically prompt you to restart the app when a new update is available. When disabled, you can check for updates manually from the app menu.": "有新版本时自动提示你重启应用。关闭后可以在应用菜单里手动检查更新。",
+      "Automatically reproduce bugs, trace causes, test fixes.": "自动复现 bug、追踪原因、测试修复。",
+      "Available CEL field tokens and helpers": "可用的 CEL 字段和辅助函数",
+      "Available CEL helper functions": "可用的 CEL 辅助函数",
+      "Available for": "适用于",
+      "Available licenses": "可用的许可证",
+      "Avoid uploading highly sensitive data and verify actions taken by your agent. Make sure you have the": "不要上传高度敏感的数据，并核实 Agent 执行的操作。请确认你已经",
+      "Back 5s (←)": "后退 5 秒（←）",
+      "Back to": "返回",
+      "Back to home": "返回首页",
+      "Back to safety": "返回安全页面",
+      "Background": "背景",
+      "Background Task Output": "后台任务输出",
+      "Background Tasks": "后台任务",
+      "Background tasks and terminals agents left running, across all conversations.": "所有对话里 Agent 留在后台运行的任务和终端。",
+      "Backoff": "退避",
+      "Backquote": "反引号",
+      "Backslash": "反斜杠",
+      "Backspace": "退格",
+      "Bad Response": "回答得不好",
+      "Baseline model quota reached": "已达到基础模型配额",
+      "Basic auth": "基本认证",
+      "Before": "之前",
+      "Best of N": "多选一（Best of N）",
+      "Best of N mode is not available": "多选一模式不可用",
+      "Best-of-N Ended": "多选一已结束",
+      "Best-of-N Started": "多选一已开始",
+      "Billing model": "计费方式",
+      "Binary file not shown": "二进制文件，不显示",
+      "Block": "屏蔽",
+      "Blocked": "已屏蔽",
+      "Blocked by organization policy": "已被组织策略屏蔽",
+      "Blocked, needs input": "已阻塞，需要输入",
+      "Boolean AND, OR, and negation": "布尔与、或、非",
+      "Bot": "机器人",
+      "Branch": "分支",
+      "Branch Changes": "分支改动",
+      "Branch actions": "分支操作",
+      "Branch names": "分支名称",
+      "Browse MCP resources": "浏览 MCP 资源",
+      "Browse and enable plugins from the Build With Google catalog.": "从 Build With Google 目录里浏览并启用插件。",
+      "Browse rules": "浏览规则",
+      "Browse the Marketplace": "浏览插件市场",
+      "Browser Actuation Permissions": "浏览器操作权限",
+      "Browser Javascript Execution Policy": "浏览器 JavaScript 执行策略",
+      "Browser Subagent Viewer": "浏览器子 Agent 查看器",
+      "Browser Use": "浏览器操作",
+      "Browser actions": "浏览器动作",
+      "Browser downloads": "浏览器下载",
+      "Browser is currently being operated by this conversation in another Hub window": "这个对话正在另一个 Hub 窗口里操作浏览器",
+      "Browser steps": "浏览器步骤",
+      "Browser tools (browser_.*)": "浏览器工具（browser_.*）",
+      "Browsing Data": "浏览数据",
+      "Browsing history": "浏览记录",
+      "Build new features": "开发新功能",
+      "Build with Google": "用 Google 构建",
+      "Build with one agent or a team": "用一个 Agent 或一个团队来构建",
+      "Built to help, not hurt": "为帮助而生，不为伤害",
+      "Bundles": "套装",
+      "Business Account Sign In": "企业账号登录",
+      "By default, agents work in folders you choose and ask before sensitive changes. Adjust this anytime in Settings.": "默认情况下，Agent 在你选的文件夹里工作，敏感改动前会先问你。随时可以在设置里调整。",
+      "Bytes": "字节",
+      "CEL Expression Reference": "CEL 表达式参考",
+      "CEL Reference": "CEL 参考",
+      "Cache:": "缓存：",
+      "Cancel All Tasks": "取消全部任务",
+      "Cancel Generation": "取消生成",
+      "Cancel Render Page Failed": "取消渲染页面失败",
+      "Cancel Render Thumbnail Failed": "取消渲染缩略图失败",
+      "Cancel Sending Message": "取消发送消息",
+      "Cancel Step": "取消这一步",
+      "Cancel Task": "取消任务",
+      "Cancel download": "取消下载",
+      "Cancel questionnaire": "取消问卷",
+      "Cancel recording": "取消录音",
+      "Cancel step": "取消这一步",
+      "Cannot parse folder URI.": "无法解析文件夹路径。",
+      "Caps Lock": "大写锁定",
+      "Capsule": "胶囊",
+      "Capture Console Logs": "获取控制台日志",
+      "Capture Screenshot": "截图",
+      "Captured DOM tree for": "已获取 DOM 树：",
+      "Card": "卡片",
+      "Caret": "插入符",
+      "Carries out the plan: searches, edits, builds, and tests. Pick a faster, cheaper model.": "执行计划：搜索、编辑、构建、测试。选一个更快、更便宜的模型。",
+      "Category": "类别",
+      "Certificate details": "证书详情",
+      "Change VCS in General settings, under Advanced": "在「常规设置」→「高级」里修改版本控制系统",
+      "Change model": "更换模型",
+      "Change schedule": "更改计划",
+      "Chat": "对话",
+      "Chat Layout": "对话布局",
+      "Chat anyways": "仍然对话",
+      "Check that the microphone is unmuted and the right input device is selected.": "检查麦克风是否没有静音，输入设备是否选对了。",
+      "Chief of Staff canvas": "总管画布",
+      "Chief of Staff voice mode is active": "总管语音模式已开启",
+      "Chinese (Simplified)": "简体中文",
+      "Choose File…": "选择文件…",
+      "Choose Region": "选择区域",
+      "Choose a Subscription": "选择订阅",
+      "Choose between non-colliding VS Code defaults or standalone Antigravity chords.": "在不冲突的 VS Code 默认快捷键和 Antigravity 独立组合键之间选择。",
+      "Choose icon and color": "选择图标和颜色",
+      "Choose the models Orchestrator uses. A larger, smarter orchestrator model with a faster, cheaper executor gives high quality for fewer tokens.": "选择编排器使用的模型。用更大、更聪明的模型做编排，配一个更快、更便宜的执行模型，用更少的 token 得到高质量结果。",
+      "Choose what to clear from the built-in browser. It can't be undone.": "选择要从内置浏览器里清除的内容。清除后无法恢复。",
+      "Choose where terminal sessions appear.": "选择终端会话显示在哪里。",
+      "Circle": "圆形",
+      "Claude and GPT models": "Claude 和 GPT 模型",
+      "Clear Browsing Data?": "清除浏览数据？",
+      "Clear Search": "清除搜索",
+      "Clear and friendly": "清楚友好",
+      "Clear category": "清除类别",
+      "Clear cookies and site data": "清除 Cookie 和网站数据",
+      "Clear file filter": "清除文件筛选",
+      "Clear filter": "清除筛选",
+      "Clear history, cookies and site data from the built-in browser, or manage cookies for each site.": "清除内置浏览器的浏览记录、Cookie 和网站数据，或按网站管理 Cookie。",
+      "Clear row filter": "清除行筛选",
+      "Clear search": "清除搜索",
+      "Clear visited URLs and autocomplete suggestions from the built-in browser.": "清除内置浏览器访问过的网址和自动补全建议。",
+      "Cleared Count": "已清除数量",
+      "Clearing cookies and site data for": "正在清除这个网站的 Cookie 和网站数据：",
+      "Click to Open Docs": "点击打开文档",
+      "Click to copy URL": "点击复制网址",
+      "Click to learn more about sources": "点击了解来源",
+      "Click to open docs": "点击打开文档",
+      "Click to view more": "点击查看更多",
+      "Click to view or edit comment": "点击查看或编辑评论",
+      "Clone current workspace into a new independent workspace": "把当前工作区克隆成一个新的独立工作区",
+      "Close (Esc)": "关闭（Esc）",
+      "Close (Escape)": "关闭（Esc）",
+      "Close Logs Modal": "关闭日志窗口",
+      "Close Other Tabs": "关闭其他标签页",
+      "Close Panel": "关闭面板",
+      "Close Tab": "关闭标签页",
+      "Close Tabs to the Left": "关闭左侧标签页",
+      "Close Tabs to the Right": "关闭右侧标签页",
+      "Close downloads": "关闭下载",
+      "Close references": "关闭引用",
+      "Close split view and go to forked conversation": "关闭分屏，转到分出的对话",
+      "Closed": "已关闭",
+      "Code": "代码",
+      "Code Change Summary": "代码改动摘要",
+      "Code Search": "代码搜索",
+      "Collapse All Folders": "折叠所有文件夹",
+      "Color": "颜色",
+      "Combobox": "组合框",
+      "Comma": "逗号",
+      "Command Palette": "命令面板",
+      "Command prompt": "命令提示符",
+      "Command setup script": "命令初始化脚本",
+      "Command:": "命令：",
+      "Commands": "命令",
+      "Commands Outside Sandbox": "沙盒外命令",
+      "Commands and files these agents can use.": "这些 Agent 可以使用的命令和文件。",
+      "Commands outside sandbox": "沙盒外命令",
+      "Comment": "评论",
+      "Comment on Selection": "评论所选内容",
+      "Comment on the plan before your agent starts, and get a walkthrough when it finishes.": "在 Agent 开始前对计划提意见，完成后看一份讲解。",
+      "Comments": "评论",
+      "Comments (": "评论（",
+      "Commit": "提交",
+      "Commit succeeded": "提交成功",
+      "Compacting": "正在压缩",
+      "Complete verification": "完成验证",
+      "Computer": "电脑",
+      "Conditions": "条件",
+      "Confident and clear": "自信清晰",
+      "Configure GitHub access policies.": "配置 GitHub 访问策略。",
+      "Configure agent execution, queued message delivery, and permissions.": "配置 Agent 执行策略、排队消息发送及权限。",
+      "Configure allowed and denied URLs for the browser subagent (invoked with /browser). Requires": "配置浏览器子 Agent（用 /browser 调用）允许和禁止访问的网址。需要",
+      "Configure allowed and denied paths for file reads and writes.": "配置文件读写允许和禁止的路径。",
+      "Configure allowed commands outside the sandbox.": "配置允许在沙盒外运行的命令。",
+      "Configure allowed terminal commands.": "配置允许的终端命令。",
+      "Configure built-in browser, link opening, and browser subagent preferences.": "配置内置浏览器、链接打开方式和浏览器子 Agent。",
+      "Configure external tools via Model Context Protocol.": "通过 Model Context Protocol 配置外部工具。",
+      "Configure hooks that run on agent lifecycle events.": "配置在 Agent 生命周期事件上运行的钩子。",
+      "Configure the default width of markdown artifacts.": "设置 Markdown 产出物的默认宽度。",
+      "Configure the maximum width of the conversation panel.": "设置对话面板的最大宽度。",
+      "Configure workspace-specific permissions, resources, and customizations.": "配置工作区专属的权限、资源和自定义项。",
+      "Configured servers": "已配置的服务器",
+      "Configures how the agent tries to access files outside of its working folders.": "设置 Agent 如何访问工作文件夹以外的文件。",
+      "Confirm Browser Interaction": "确认浏览器操作",
+      "Confirm Undo": "确认撤销",
+      "Confirm the command is safe to run outside of the sandbox with full network and disk access.": "确认这条命令可以在沙盒外安全运行（拥有完整的网络和磁盘权限）。",
+      "Confirmation required to execute this step": "执行这一步需要确认",
+      "Connect GitHub": "连接 GitHub",
+      "Connect an account so the agent can use this app.": "连接一个账号，让 Agent 可以使用这个应用。",
+      "Connect to SSH Host…": "连接到 SSH 主机…",
+      "Connect your account to browse": "连接账号后浏览",
+      "Connected Google Drive and GitHub resources": "已连接的 Google Drive 和 GitHub 资源",
+      "Connecting to terminal...": "正在连接终端…",
+      "Connection is secure": "连接是安全的",
+      "Connection security information is not available for this page": "这个页面没有连接安全信息",
+      "Connections": "连接",
+      "Connectors": "连接器",
+      "Console Telemetry": "控制台使用数据",
+      "Contact your administrator to set up Gemini Enterprise for this project": "请联系管理员为这个项目开通 Gemini Enterprise",
+      "Contents": "目录",
+      "Context Providers": "上下文提供方",
+      "Context and Quota Indicator": "上下文和配额指示器",
+      "Context usage": "上下文用量",
+      "Continue Task →": "继续任务 →",
+      "Continue with Google": "用 Google 账号继续",
+      "Continue with Google Cloud": "用 Google Cloud 继续",
+      "Continue with different account": "换个账号继续",
+      "Continue your work from another device with Remote Control. Scan the QR code or open the link below.": "用远程控制在另一台设备上继续工作。扫描二维码或打开下面的链接。",
+      "Contrast": "对比度",
+      "Controls how much time and quota the model spends reasoning before responding. Higher effort improves accuracy on hard problems, at the cost of slower responses and higher quota use.": "控制模型在回答前花多少时间和配额思考。思考越多，难题越准，但回答越慢、配额用得越多。",
+      "Controls permissions for remote conversations.": "控制远程对话的权限。",
+      "Controls whether terminal commands require your approval before running.": "控制终端命令运行前是否需要你批准。",
+      "Controls whether terminal commands require your approval before running.\n\nNote: A change to this setting will only apply to new messages sent to the agent. In-progress responses will use the previous setting value.": "控制终端命令运行前是否需要你批准。\n\n注意：修改只对之后发给 Agent 的消息生效，正在进行的回复仍按原来的设置。",
+      "Controls whether the agent can run custom JavaScript to automate complex browser actions.": "控制 Agent 能否运行自定义 JavaScript 来完成复杂的浏览器操作。",
+      "Conversation Archived": "对话已归档",
+      "Conversation History": "对话记录",
+      "Conversation ID": "对话 ID",
+      "Conversation Name": "对话名称",
+      "Conversation Telemetry": "对话使用数据",
+      "Conversation Unarchived": "对话已取消归档",
+      "Conversation Width": "对话宽度",
+      "Conversation copied as Markdown to clipboard": "已把对话以 Markdown 格式复制到剪贴板",
+      "Conversation is not open in this Hub window": "这个对话没有在当前 Hub 窗口中打开",
+      "Conversation limit reached": "已达到对话数量上限",
+      "Conversation link": "对话链接",
+      "Conversation name": "对话名称",
+      "Conversation unavailable": "对话不可用",
+      "Cookies and other site data": "Cookie 和其他网站数据",
+      "Cookies and site data": "Cookie 和网站数据",
+      "Cookies by Site": "按网站查看 Cookie",
+      "Cookies the built-in browser stores for each site. Deleting a site's cookies usually signs you out of it. Other site data (local storage, IndexedDB, cache) is cleared only by Browsing Data → Clear.": "内置浏览器为每个网站保存的 Cookie。删除某个网站的 Cookie 通常会退出它的登录。其他网站数据（本地存储、IndexedDB、缓存）只能在「浏览数据」→「清除」里清掉。",
+      "Cookies, site storage and cache. Signs you out of all sites in the built-in browser and reloads its open tabs.": "Cookie、网站存储和缓存。会退出内置浏览器里所有网站的登录，并重新加载已打开的标签页。",
+      "Coordinator goal": "协调者目标",
+      "Coordinator name": "协调者名称",
+      "Coordinator settings": "协调者设置",
+      "Coordinators": "协调者",
+      "Copy Command": "复制命令",
+      "Copy Config File Path": "复制配置文件路径",
+      "Copy Content": "复制内容",
+      "Copy Conversation ID": "复制对话 ID",
+      "Copy Conversation Markdown": "复制对话 Markdown",
+      "Copy File Name": "复制文件名",
+      "Copy File Path": "复制文件路径",
+      "Copy Image": "复制图片",
+      "Copy Image Address": "复制图片地址",
+      "Copy Link": "复制链接",
+      "Copy Link Address": "复制链接地址",
+      "Copy Message": "复制消息",
+      "Copy Path": "复制路径",
+      "Copy Trajectory ID": "复制轨迹 ID",
+      "Copy command": "复制命令",
+      "Copy debug info": "复制调试信息",
+      "Copy full URL to clipboard": "把完整网址复制到剪贴板",
+      "Copy gh auth login command": "复制 gh auth login 命令",
+      "Copy to clipboard": "复制到剪贴板",
+      "Could not clear site data for": "无法清除这个网站的数据：",
+      "Could not create project": "无法创建项目",
+      "Could not load": "无法加载",
+      "Could not load the app view:": "无法加载应用视图：",
+      "Couldn't clear browsing data. Try again.": "没能清除浏览数据，请重试。",
+      "Couldn't connect": "无法连接",
+      "Couldn't connect to": "无法连接到",
+      "Couldn't delete cookies for": "没能删除这个网站的 Cookie：",
+      "Couldn't delete your data. Try again.": "没能删除你的数据，请重试。",
+      "Couldn't edit queued message": "无法编辑排队中的消息",
+      "Couldn't load Google Drive link title": "无法加载 Google Drive 链接标题",
+      "Couldn't load cookies.": "无法加载 Cookie。",
+      "Couldn't load your SSH hosts": "无法加载你的 SSH 主机",
+      "Couldn't load your SSH hosts. You can still type one.": "无法加载你的 SSH 主机，你仍然可以手动输入。",
+      "Couldn't mark conversations as read": "无法把对话标为已读",
+      "Couldn't search files": "无法搜索文件",
+      "Couldn't start the coordinator:": "无法启动协调者：",
+      "Couldn't switch accounts:": "无法切换账号：",
+      "Count": "数量",
+      "Create Coordinator": "创建协调者",
+      "Create Group": "创建分组",
+      "Create New": "新建",
+      "Create a Plugin with the Agent": "让 Agent 创建一个插件",
+      "Create a new project from one or more folders.": "用一个或多个文件夹新建项目。",
+      "Create a new project using normal folders and/or citc workspaces.": "用普通文件夹和 / 或 CitC 工作区新建项目。",
+      "Create a project first.": "请先创建一个项目。",
+      "Create a project on a machine you reach over SSH. It opens in that host's own window.": "在通过 SSH 连接的机器上创建项目，会在那台主机自己的窗口里打开。",
+      "Create a project on this computer or remotely.": "在这台电脑上或远程创建项目。",
+      "Create a token": "创建令牌",
+      "Create plugin": "创建插件",
+      "Create with Prompt": "用提示词创建",
+      "Created a new branch on GitHub.": "已在 GitHub 上新建分支。",
+      "Created a new branch on Origin.": "已在 Origin 上新建分支。",
+      "Creating projects for your conversations": "正在为你的对话创建项目",
+      "Creating terminal...": "正在创建终端…",
+      "Creating...": "正在创建…",
+      "Critique": "评审",
+      "Curated sets of plugins for common workflows and roles.": "常见工作流程和角色的精选插件合集。",
+      "Current Page": "当前页面",
+      "Current workspace": "当前工作区",
+      "Currently installed": "已安装",
+      "Custom Agent Error:": "自定义 Agent 出错：",
+      "Custom Agents": "自定义 Agent",
+      "Custom Context Menus": "自定义右键菜单",
+      "Custom Flags": "自定义开关",
+      "Custom Order": "自定义顺序",
+      "Custom flag to turn on": "要打开的自定义开关",
+      "Custom models are only supported on Linux machines.": "自定义模型只支持 Linux 电脑。",
+      "Customizations views": "自定义视图",
+      "Customize": "自定义",
+      "Customize Global Skills": "自定义全局技能",
+      "Customize Sections": "自定义分区",
+      "Customize Shortcuts": "自定义快捷键",
+      "Customize Sidebar": "自定义侧边栏",
+      "Customize your experience across the agent, plugins, and product from the settings and marketplace. We won’t show you ads or let advertisers influence what": "在设置和插件市场里自定义 Agent、插件和产品体验。我们不会向你展示广告，也不会让广告主影响",
+      "Custom…": "自定义…",
+      "Daily": "每天",
+      "Daily conversation limit reached": "已达到每日对话上限",
+      "Daily environment time used": "今日已用环境时长",
+      "Danger Zone": "危险操作",
+      "Dark preview": "深色预览",
+      "Day of the month": "每月第几天",
+      "Day of the week": "星期几",
+      "Days": "天",
+      "Debug and fix": "调试并修复",
+      "Declaration": "声明",
+      "Decline": "拒绝",
+      "Deep and velvety": "深沉柔和",
+      "Default (Mendel)": "默认（Mendel）",
+      "Default Cog branch / ref": "默认 Cog 分支 / 引用",
+      "Default Cog repository": "默认 Cog 仓库",
+      "Default Customizations": "默认自定义项",
+      "Default workspace VCS": "默认工作区版本控制系统",
+      "Definition:": "定义：",
+      "Delete All Data": "删除全部数据",
+      "Delete All Remote Agents Data": "删除全部远程 Agent 数据",
+      "Delete All Remote Agents Data?": "删除全部远程 Agent 数据？",
+      "Delete Conversation": "删除对话",
+      "Delete Group": "删除分组",
+      "Delete Handler": "删除处理程序",
+      "Delete Hook": "删除钩子",
+      "Delete MCP Server": "删除 MCP 服务器",
+      "Delete Permanently": "永久删除",
+      "Delete Side Question": "删除旁支提问",
+      "Delete Skill": "删除技能",
+      "Delete Task": "删除任务",
+      "Delete Terminal": "删除终端",
+      "Delete agent": "删除 Agent",
+      "Delete all": "全部删除",
+      "Delete all recordings?": "删除全部录音？",
+      "Delete comment": "删除评论",
+      "Delete organization policy": "删除组织策略",
+      "Delete plugin": "删除插件",
+      "Delete repository policy": "删除仓库策略",
+      "Delete server": "删除服务器",
+      "Delete side question": "删除旁支提问",
+      "Deleted": "已删除",
+      "Denied Sites": "已禁止的网站",
+      "Deny setting up browser": "拒绝设置浏览器",
+      "Deny with note": "拒绝并附上备注",
+      "Describe the bug you encountered...": "描述一下你遇到的问题…",
+      "Describe what you want. Your agent plans and builds it, and brings in other agents when needed.": "描述你想要什么。Agent 会规划并完成，需要时会叫上其他 Agent。",
+      "Determines the markup language of the output.": "决定输出用哪种标记语言。",
+      "Dev mode: Localhost server automatically detected": "开发模式：已自动检测到本地服务器",
+      "Developer": "开发者",
+      "Developer-only tools. These settings do not affect other users.": "仅供开发者使用的工具，这些设置不影响其他用户。",
+      "Developer: Reset NUX": "开发者：重置新手引导",
+      "Developer: Reset Onboarding": "开发者：重置初次设置",
+      "Device Name": "设备名称",
+      "Did restarting the desktop app help?": "重启桌面应用有用吗？",
+      "Diff contents are no longer available.": "差异内容已经不可用了。",
+      "Directory Viewer": "目录查看器",
+      "Directory not shown": "目录未显示",
+      "Disabled by organization policy": "已被组织策略停用",
+      "Disabled. Open Details to finish setup or enable.": "已停用。打开详情完成设置或启用。",
+      "Disabled. Open the plugin page to finish setup.": "已停用。打开插件页面完成设置。",
+      "Disabling or removing this bundle doesn't affect it.": "停用或移除这个套装不会影响它。",
+      "Discard comment draft": "放弃评论草稿",
+      "Discard unstaged changes": "放弃未暂存的改动",
+      "Dismiss Tip": "关闭提示",
+      "Dismiss artifact update notice": "关闭产出物更新提示",
+      "Dismiss conversation open elsewhere warning": "关闭「对话已在别处打开」提示",
+      "Dismiss error": "关闭错误提示",
+      "Dismiss microphone warning": "关闭麦克风提示",
+      "Dismiss notification": "关闭通知",
+      "Dismiss service announcement": "关闭服务公告",
+      "Dismiss suggestion": "关闭建议",
+      "Dismiss text selection notice": "关闭文字选择提示",
+      "Docs, Sheets, Slides, and folders": "文档、表格、幻灯片和文件夹",
+      "Document Answers": "文档回答",
+      "Document attachment": "文档附件",
+      "Documents": "文档",
+      "Domains:": "域名：",
+      "Don't show this for 2 days": "2 天内不再显示",
+      "Down": "下",
+      "Download Diagnostics": "下载诊断信息",
+      "Download File": "下载文件",
+      "Download PDF": "下载 PDF",
+      "Download files": "下载文件",
+      "Download from": "下载来源",
+      "Download this site as an app to get notified when the agent needs your attention or completes a task.": "把这个网站下载成应用，Agent 需要你处理或完成任务时就能收到通知。",
+      "Downloads": "下载",
+      "Draft": "草稿",
+      "Draft documents, emails, and notes that sound like you.": "起草像你写的文档、邮件和笔记。",
+      "Drag to move": "拖动来移动",
+      "Drag to resize, double-click to reset": "拖动调整大小，双击还原",
+      "Drag to select a region to comment": "拖动选出一块区域来评论",
+      "Drawer": "抽屉",
+      "E.g. locations/global/workforcePools...": "例如 locations/global/workforcePools...",
+      "Edit Comment": "编辑评论",
+      "Edit Conversation Title": "编辑对话标题",
+      "Edit Model": "编辑模型",
+      "Edit Shortcut": "编辑快捷键",
+      "Edit comment": "编辑评论",
+      "Edit permission target": "编辑权限对象",
+      "Edit task title": "编辑任务标题",
+      "Edition": "版本",
+      "Electron (Android Desktop)": "Electron（Android 桌面版）",
+      "Electron (Desktop)": "Electron（桌面版）",
+      "Electron (Gemini App)": "Electron（Gemini 应用）",
+      "Email": "邮箱",
+      "Embedded web preview": "内嵌网页预览",
+      "Embedding Limitations": "嵌入限制",
+      "Empty directory": "空目录",
+      "Empty log": "日志为空",
+      "Empty script.": "脚本为空。",
+      "Empty table": "空表格",
+      "Enable AI Credit Overages": "启用 AI 额度超额抵扣",
+      "Enable Best-of-2": "启用二选一",
+      "Enable Browser Agent": "启用浏览器 Agent",
+      "Enable Notifications": "启用通知",
+      "Enable Recommended Skills": "启用推荐技能",
+      "Enable fine-grained GitHub permissions and define the org, repository, and resource-level access the agent is allowed to use.": "启用细粒度 GitHub 权限，设定 Agent 可以使用的组织、仓库和资源级访问权限。",
+      "Enable recommended skills": "启用推荐技能",
+      "Enable sandbox mode": "启用沙盒模式",
+      "Enable telemetry in Settings before changing per-conversation telemetry.": "先在设置里打开使用数据，才能修改单个对话的使用数据设置。",
+      "Enable terminal sandbox": "启用终端沙盒",
+      "Enable the plugin to sign in.": "启用插件后才能登录。",
+      "Enable this plugin to manage its accounts.": "启用这个插件后才能管理它的账号。",
+      "Encountered an error while running the plugin.": "运行插件时出错了。",
+      "Enter Google Cloud Project Details": "填写 Google Cloud 项目信息",
+      "Enter [user@]host[:port], or pick a host from your SSH config.": "输入 [用户@]主机[:端口]，或者从 SSH 配置里选一个主机。",
+      "Enter always submits. This adds a second shortcut.": "Enter 始终会发送，这里是再加一个快捷键。",
+      "Enter authorization code...": "输入授权码…",
+      "Enter device name...": "输入设备名称…",
+      "Enter project name...": "输入项目名称…",
+      "Enter the configuration values this MCP server needs. Saving restarts the server with them.": "填写这个 MCP 服务器需要的配置，保存后会用新配置重启服务器。",
+      "Enter to send": "按 Enter 发送",
+      "Enter tool name or server...": "输入工具名或服务器…",
+      "Enterprise": "企业版",
+      "Environment": "环境",
+      "Environments": "环境",
+      "Equal": "等于",
+      "Equality and list membership (e.g.": "相等和列表包含（例如",
+      "Equalize Split Panes": "均分分屏",
+      "Error Details:": "错误详情：",
+      "Error ID:": "错误 ID：",
+      "Error Loading Models": "加载模型出错",
+      "Error fetching MCP prompt": "获取 MCP 提示词出错",
+      "Error loading Browser recording": "加载浏览器录屏出错",
+      "Error rendering playback": "渲染回放出错",
+      "Error while editing": "编辑时出错",
+      "Error while editing notebook": "编辑笔记本时出错",
+      "Error while reading notebook": "读取笔记本时出错",
+      "Error while viewing": "查看时出错",
+      "Error:": "错误：",
+      "Error: Artifacts from remote conversations are not available here.": "错误：远程对话的产出物在这里不可用。",
+      "Error: No artifact URI provided in URL parameters.": "错误：网址参数里没有产出物地址。",
+      "Errors": "错误",
+      "Escape": "Esc",
+      "Europe": "欧洲",
+      "Event:": "事件：",
+      "Events": "事件",
+      "Every command requires approval.": "每条命令都需要批准。",
+      "Every day": "每天",
+      "Every hour": "每小时",
+      "Every week": "每周",
+      "Every weekday": "每个工作日",
+      "Excluded": "已排除",
+      "Execute URLs": "执行网址",
+      "Execution Identity": "执行身份",
+      "Executor Model": "执行模型",
+      "Expand All Folders": "展开所有文件夹",
+      "Expected behavior": "预期表现",
+      "Experimental": "实验性",
+      "Expired · Action not taken": "已过期 · 未处理",
+      "Explore other marketplace customizations": "探索插件市场里的其他自定义项",
+      "Explore the plugin marketplace": "探索插件市场",
+      "Export Artifact": "导出产出物",
+      "Export artifact": "导出产出物",
+      "Export as PDF": "导出为 PDF",
+      "Extension": "扩展",
+      "Extension (Antigravity IDE)": "扩展（Antigravity IDE）",
+      "Extension (Cider)": "扩展（Cider）",
+      "Extension (Eclipse)": "扩展（Eclipse）",
+      "Extension (VS Code)": "扩展（VS Code）",
+      "Extension (Visual Studio)": "扩展（Visual Studio）",
+      "External": "外部",
+      "External tools the agent can call via Model Context Protocol.": "Agent 可以通过 Model Context Protocol 调用的外部工具。",
+      "Extra": "附加",
+      "Eye": "眼睛",
+      "Failed to Amend": "修改提交失败",
+      "Failed to Commit": "提交失败",
+      "Failed to Generate Commit Message": "生成提交说明失败",
+      "Failed to Push": "推送失败",
+      "Failed to approve browser interaction": "批准浏览器操作失败",
+      "Failed to clone project locally": "在本地克隆项目失败",
+      "Failed to continue": "无法继续",
+      "Failed to create CitC clone workspace": "创建 CitC 克隆工作区失败",
+      "Failed to create automation.": "创建自动化任务失败。",
+      "Failed to create remote project": "创建远程项目失败",
+      "Failed to create terminal": "创建终端失败",
+      "Failed to create worktree": "创建工作树失败",
+      "Failed to delete conversation": "删除对话失败",
+      "Failed to delete side question": "删除旁支提问失败",
+      "Failed to export artifact": "导出产出物失败",
+      "Failed to fetch diffs": "获取差异失败",
+      "Failed to fork conversation": "分出对话失败",
+      "Failed to get all annotations": "获取全部批注失败",
+      "Failed to get annotations": "获取批注失败",
+      "Failed to inspect license for this project": "检查这个项目的许可证失败",
+      "Failed to load comments": "加载评论失败",
+      "Failed to load diff contents.": "加载差异内容失败。",
+      "Failed to load image": "加载图片失败",
+      "Failed to load resources": "加载资源失败",
+      "Failed to load shared conversation": "加载分享的对话失败",
+      "Failed to load some diffs": "部分差异加载失败",
+      "Failed to proceed": "无法继续",
+      "Failed to read file": "读取文件失败",
+      "Failed to read file content": "读取文件内容失败",
+      "Failed to refresh credentials": "刷新凭据失败",
+      "Failed to reject browser interaction": "拒绝浏览器操作失败",
+      "Failed to rename conversation": "重命名对话失败",
+      "Failed to render diagram": "渲染图表失败",
+      "Failed to render math": "渲染公式失败",
+      "Failed to revert conversation": "还原对话失败",
+      "Failed to save token to ~/.env": "保存令牌到 ~/.env 失败",
+      "Failed to send command input": "发送命令输入失败",
+      "Failed to send side question": "发送旁支提问失败",
+      "Failed to start Best of N mode": "启动多选一模式失败",
+      "Failed to start conversation": "开始对话失败",
+      "Failed to start side question": "开始旁支提问失败",
+      "Failed to stop agent": "停止 Agent 失败",
+      "Failed to stop conversation": "停止对话失败",
+      "Failed to unarchive local project": "取消归档本地项目失败",
+      "Failed to upload HTML artifact to Drive": "上传 HTML 产出物到 Drive 失败",
+      "Failed to validate the saved GitHub token.": "保存的 GitHub 令牌验证失败。",
+      "Fallback Summary Used": "已使用备用摘要",
+      "Fetched network request for page.": "已获取页面的网络请求。",
+      "Fetched network requests for page.": "已获取页面的网络请求。",
+      "Fields": "字段",
+      "File Comments": "文件评论",
+      "File Diff Comments": "文件差异评论",
+      "File Explorer": "文件资源管理器",
+      "File Permissions": "文件权限",
+      "File Picker": "文件选择器",
+      "File Tree Component is not loaded.": "文件树组件没有加载。",
+      "File access rules": "文件访问规则",
+      "File attachment": "文件附件",
+      "File explorer": "文件资源管理器",
+      "File not found": "找不到文件",
+      "File path breadcrumbs": "文件路径导航",
+      "File reads": "文件读取",
+      "File writes": "文件写入",
+      "Files Changed": "改动的文件",
+      "Files and resources in cloud workspaces": "云端工作区里的文件和资源",
+      "Files modified by the agent in this conversation": "这个对话里 Agent 改过的文件",
+      "Files to edit:": "要编辑的文件：",
+      "Files, folders, and repositories you connect are accessible to your agent in this project, including during background or scheduled runs.": "你连接的文件、文件夹和仓库，在这个项目里 Agent 都能访问，包括后台运行和定时运行时。",
+      "Filter agents": "筛选 Agent",
+      "Filter and Sort": "筛选和排序",
+      "Filter files": "筛选文件",
+      "Filter files...": "筛选文件…",
+      "Filter plugins": "筛选插件",
+      "Filter resources...": "筛选资源…",
+      "Filter rows": "筛选行",
+      "Filter rows...": "筛选行…",
+      "Filters": "筛选",
+      "Finalizing transcription...": "正在完成转写…",
+      "Find References": "查找引用",
+      "Find in Conversation": "在对话中查找",
+      "Find in Pane": "在窗格中查找",
+      "Find plugins - bundles of skills, agents, MCP servers, UI extensions and more, and install them in one click.": "查找插件（技能、Agent、MCP 服务器、界面扩展等的组合），一键安装。",
+      "Finish signing in in your browser.": "在浏览器里完成登录。",
+      "Finish signing in to": "完成登录：",
+      "Fires after a tool step completes.": "工具步骤完成后触发。",
+      "Fires after tool calls finish.": "工具调用结束后触发。",
+      "Fires before a tool step executes.": "工具步骤执行前触发。",
+      "Fires before the model is called.": "调用模型前触发。",
+      "Fires when the execution loop terminates.": "执行循环结束时触发。",
+      "Fit Mode": "适配方式",
+      "Five Hour Limit Remaining": "5 小时限额剩余",
+      "Fix with Agent": "让 Agent 修复",
+      "Folder": "文件夹",
+      "Folder doesn't exist": "文件夹不存在",
+      "Folder where files downloaded in the built-in browser are saved.": "内置浏览器下载的文件保存到这个文件夹。",
+      "Folders": "文件夹",
+      "Folders these agents can access.": "这些 Agent 可以访问的文件夹。",
+      "For Antigravity Business consumption options, see": "Antigravity 企业版的计费方式，请参阅",
+      "For Turn": "对于这一轮",
+      "For example: Morning bug summary": "例如：早晨 bug 汇总",
+      "For example: every morning, summarize new bugs assigned to me and anything that changed overnight.": "例如：每天早上汇总分配给我的新 bug，以及夜里有变化的内容。",
+      "For most deep reasoning and complex problems": "适合深度推理和复杂问题",
+      "Foreground": "前景色",
+      "Fork": "分出",
+      "Fork Conversation": "分出对话",
+      "Fork conversation in this folder": "在这个文件夹里分出对话",
+      "Fork in New Workspace": "在新工作区里分出",
+      "Fork in Shared Workspace": "在共享工作区里分出",
+      "Fork warning": "分出警告",
+      "Forked from": "分自",
+      "Forward": "前进",
+      "Forward 5s (→)": "前进 5 秒（→）",
+      "Found references to": "找到引用：",
+      "Friday": "星期五",
+      "From": "从",
+      "Full Error": "完整错误",
+      "Full Logs": "完整日志",
+      "Full View": "完整视图",
+      "Full interface for coding, developer tools, and managing agents.": "完整界面，适合编程、开发工具和管理 Agent。",
+      "Full machine": "整台电脑",
+      "Full output written to": "完整输出已写入",
+      "Fullscreen": "全屏",
+      "Gauge": "仪表",
+      "Generated image preview": "生成图片预览",
+      "Generation Steps (": "生成步骤（",
+      "Generations": "生成次数",
+      "Get API key": "获取 API 密钥",
+      "Get Anything Done with": "用它搞定一切：",
+      "Get More AI Credits": "获取更多 AI 额度",
+      "Get notified when the agent needs your attention or completes a task.": "Agent 需要你处理或完成任务时通知你。",
+      "Get started": "开始使用",
+      "Get started with Remote Control": "开始使用远程控制",
+      "Getting scripts...": "正在获取脚本…",
+      "Getting started with Google Antigravity": "Google Antigravity 入门",
+      "GitHub Permissions": "GitHub 权限",
+      "GitHub Personal Access Token": "GitHub 个人访问令牌",
+      "GitHub Policies": "GitHub 策略",
+      "GitHub Repositories": "GitHub 仓库",
+      "GitHub: not signed in": "GitHub：未登录",
+      "Go to": "转到",
+      "Go to Accounts": "前往账号",
+      "Go to Home": "回到首页",
+      "Go to the machine you are controlling and quit Antigravity. It installs pending updates the next time it starts.": "去你正在控制的那台电脑上退出 Antigravity，下次启动时会安装待更新的内容。",
+      "Goal": "目标",
+      "Goals": "目标",
+      "Good Response": "回答得好",
+      "Google (internal)": "Google（内部）",
+      "Google Antigravity Terms of Service": "Google Antigravity 服务条款",
+      "Google Privacy Policy": "Google 隐私权政策",
+      "Google Search": "Google 搜索",
+      "Google Sheets": "Google 表格",
+      "Google Slides": "Google 幻灯片",
+      "Google3 Configuration": "Google3 配置",
+      "Grant administrator access for": "授予管理员权限：",
+      "Grant create, update, or delete access to specific branches.": "授予对指定分支的创建、更新或删除权限。",
+      "Grant read access to workflow runs and allow dispatching workflows on specific files and refs.": "授予读取工作流运行记录的权限，并允许在指定文件和引用上触发工作流。",
+      "Grant repository access": "授予仓库访问权限",
+      "Grant the selected actions on the listed branch names — a comma-separated list like main, dev, prod (glob patterns like fix-* allowed), or * for all.": "对列出的分支名称授予所选操作，用逗号分隔，例如 main, dev, prod（支持 fix-* 这类通配符），或者填 * 表示全部。",
+      "Grant the selected actions on the listed issue numbers — a comma-separated list like 1, 2, 3, or * for all.": "对列出的 Issue 编号授予所选操作，用逗号分隔，例如 1, 2, 3，或者填 * 表示全部。",
+      "Grant the selected actions on the listed pull request numbers — a comma-separated list like 1, 2, 3, or * for all.": "对列出的 Pull Request 编号授予所选操作，用逗号分隔，例如 1, 2, 3，或者填 * 表示全部。",
+      "Green": "绿色",
+      "Group By": "分组方式",
+      "Group name": "分组名称",
+      "Hand off a feature and come back to working code.": "交给它一个功能，回来时就是能跑的代码。",
+      "Handler #": "处理程序 #",
+      "Having trouble signing in?": "登录遇到问题？",
+      "Helpers": "辅助函数",
+      "Here's how uploaded files, attachments, and connected resources work in your cloud environment": "下面是上传的文件、附件和连接的资源在云端环境里怎么运作",
+      "Here's how you and your agents work together": "下面是你和 Agent 怎么配合工作",
+      "Hidden by policy": "已被策略隐藏",
+      "Hidden hosts": "已隐藏的主机",
+      "Highlight": "高亮",
+      "Hold": "保持",
+      "Home": "首页",
+      "Hook will only trigger if the tool name matches run_command or view_file.": "只有工具名是 run_command 或 view_file 时钩子才会触发。",
+      "Hook will only trigger if the tool name matches run_command.": "只有工具名是 run_command 时钩子才会触发。",
+      "Hook will only trigger if the tool name starts with browser_.": "只有工具名以 browser_ 开头时钩子才会触发。",
+      "Hook will trigger if any tool is executed.": "执行任何工具都会触发钩子。",
+      "Hooks": "钩子",
+      "Host": "主机",
+      "Host Endpoint": "主机端点",
+      "Host Environment": "主机环境",
+      "Hourly": "每小时",
+      "How often": "频率",
+      "How this feature would help you and other users": "这个功能对你和其他用户有什么帮助",
+      "I prefer an immediate single response to prioritize productivity right now.": "我更想要一次给出的回答，现在效率优先。",
+      "ID:": "ID：",
+      "Icon": "图标",
+      "Identifier": "标识符",
+      "Idle": "空闲",
+      "Idle Conversations": "空闲的对话",
+      "Ignore events emitted by automated review or robot accounts (groupagent-*).": "忽略自动评审或机器人账号（groupagent-*）发出的事件。",
+      "Ignore events triggered by the automation owner to avoid self-trigger loops.": "忽略自动化任务所有者触发的事件，避免自己触发自己。",
+      "Image Answers": "图片回答",
+      "Image URL:": "图片网址：",
+      "Image attachment": "图片附件",
+      "Image preview not available": "无法预览图片",
+      "Image rendering blocked (strict mode enabled)": "图片渲染已被阻止（已开启严格模式）",
+      "Import AI Studio Project": "导入 AI Studio 项目",
+      "Importing shared conversation...": "正在导入分享的对话…",
+      "In System Settings, click": "在「系统设置」里点击",
+      "In System Settings, turn on": "在「系统设置」里打开",
+      "In a rush": "赶时间",
+      "In chat": "在对话中",
+      "In progress": "进行中",
+      "In review": "审阅中",
+      "In this case,": "这种情况下，",
+      "Include at least one positive": "至少包含一个正向条件",
+      "Include default customizations, such as default skills.": "包含默认自定义项，比如默认技能。",
+      "Include unstaged changes": "包含未暂存的改动",
+      "Indexed CEL helper functions": "带索引的 CEL 辅助函数",
+      "Inherit Global": "继承全局设置",
+      "Initializing...": "正在初始化…",
+      "Inline PDF preview is not available in this environment.": "当前环境不支持内嵌预览 PDF。",
+      "Input": "输入",
+      "Input:": "输入：",
+      "Insert": "插入",
+      "Insert in Terminal": "插入到终端",
+      "Insert in terminal": "插入到终端",
+      "Insert into main conversation": "插入到主对话",
+      "Inspected commit": "已检查提交",
+      "Install or enable the Google Drive plugin in Customizations to search files with @drive: or paste Drive links": "在「技能与自定义」里安装或启用 Google Drive 插件，就能用 @drive: 搜索文件或粘贴 Drive 链接",
+      "Install this plugin to see the commands it adds, along with its skills, agents and MCP servers.": "安装这个插件后，可以看到它添加的命令、技能、Agent 和 MCP 服务器。",
+      "Installed MCP Servers": "已安装的 MCP 服务器",
+      "Installed separately": "单独安装的",
+      "Instead of queueing, try asking the agent to do something after the current task.": "与其排队，不如让 Agent 在当前任务完成后再做这件事。",
+      "Instructions": "说明",
+      "Insufficient AI Credits": "AI 额度不足",
+      "Intended primarily for previewing local development servers (e.g.,": "主要用于预览本地开发服务器（例如",
+      "Internal": "内部",
+      "Interrupt Agent": "打断 Agent",
+      "Invalid Media": "媒体无效",
+      "Invalid loopback URL": "无效的本机回环网址",
+      "Invite a Friend": "邀请好友",
+      "Issue actions": "Issue 操作",
+      "Issue creation": "创建 Issue",
+      "Issue numbers": "Issue 编号",
+      "Issued by": "颁发者",
+      "Issued to": "颁发给",
+      "Issues": "Issue",
+      "It was already sent or couldn't be removed from the queue.": "它已经发出去了，或者没法从队列里移除。",
+      "Join the Google Chat space": "加入 Google Chat 群组",
+      "Jump to Next Prompt": "跳到下一条提问",
+      "Jump to Previous Prompt": "跳到上一条提问",
+      "Keep Open": "保持打开",
+      "Keep your coding agent up to date with the latest web best practices": "让你的编程 Agent 始终掌握最新的 Web 最佳实践",
+      "Keeps working in this folder. Nothing is copied.": "继续在这个文件夹里工作，不复制任何东西。",
+      "Keeps your checkout untouched": "不动你现有的代码副本",
+      "Keybinding Scheme": "快捷键方案",
+      "Keyboard shortcuts for quick navigation and control.": "用于快速导航和操作的键盘快捷键。",
+      "Kill Terminal": "结束终端",
+      "Knowledge Generation": "知识生成",
+      "Label": "标签",
+      "Labs": "实验室",
+      "Last 7 days": "最近 7 天",
+      "Last Activity": "最近活动",
+      "Last Prompt": "上一条提问",
+      "Last Updated": "最近更新",
+      "Last Used": "最近使用",
+      "Launching the browser...": "正在启动浏览器…",
+      "Layout Controls": "布局控制",
+      "Learn more about": "了解更多：",
+      "Leaving Soon": "即将下线",
+      "Left": "左",
+      "Legacy Dark": "旧版深色",
+      "Legacy Light": "旧版浅色",
+      "Legal Help": "法律帮助",
+      "Let's tailor the experience for you. What best describes your work?": "根据你的情况定制体验。哪一项最符合你的工作？",
+      "License:": "许可证：",
+      "Light and precise": "轻盈精准",
+      "Light preview": "浅色预览",
+      "Line": "线条",
+      "Link": "链接",
+      "Link Settings": "链接设置",
+      "Link copied to clipboard.": "链接已复制到剪贴板。",
+      "Links": "链接",
+      "Literal": "字面量",
+      "Loading Browser recording...": "正在加载浏览器录屏…",
+      "Loading Hosts…": "正在加载主机…",
+      "Loading MCP servers...": "正在加载 MCP 服务器…",
+      "Loading Repositories…": "正在加载仓库…",
+      "Loading apps...": "正在加载应用…",
+      "Loading available plugins...": "正在加载可用插件…",
+      "Loading bundles...": "正在加载套装…",
+      "Loading conversations...": "正在加载对话…",
+      "Loading customizations...": "正在加载自定义项…",
+      "Loading events...": "正在加载事件…",
+      "Loading hooks...": "正在加载钩子…",
+      "Loading installed plugins...": "正在加载已安装插件…",
+      "Loading instances...": "正在加载实例…",
+      "Loading licenses...": "正在加载许可证…",
+      "Loading logs...": "正在加载日志…",
+      "Loading media...": "正在加载媒体…",
+      "Loading models...": "正在加载模型…",
+      "Loading older messages…": "正在加载更早消息…",
+      "Loading page": "正在加载页面",
+      "Loading plugins...": "正在加载插件…",
+      "Loading preview…": "正在加载预览…",
+      "Loading skills…": "正在加载技能…",
+      "Loading subagent...": "正在加载子 Agent…",
+      "Loading token usage...": "正在加载 token 用量…",
+      "Loading trajectory...": "正在加载轨迹…",
+      "Loading worktrees...": "正在加载工作树…",
+      "Loading…": "正在加载…",
+      "Local": "本地",
+      "Local Checkout": "本地代码副本",
+      "Local Permissions": "本地权限",
+      "Local Windows environment": "本地 Windows 环境",
+      "Local only": "仅本地",
+      "Location:": "位置：",
+      "Log back in": "重新登录",
+      "Log in": "登录",
+      "Log in to use the agent": "登录后使用 Agent",
+      "Logs": "日志",
+      "Logs each telemetry event to the browser's DevTools console as it fires, with the click or key that caused it. Stays on across reloads until you turn it off.": "把每个使用数据事件连同触发它的点击或按键输出到浏览器开发者工具的控制台。重新加载后仍然有效，直到你关掉。",
+      "Long pages like this one will be broken down into outlines and read as needed. Read more at our": "像这样的长页面会被拆成大纲，按需读取。详情请看我们的",
+      "MCP Authentication Error:": "MCP 验证错误：",
+      "MCP Configuration Error:": "MCP 配置错误：",
+      "MCP Install Error:": "MCP 安装错误：",
+      "MCP Restart Error:": "MCP 重启错误：",
+      "MCP Servers Disabled": "MCP 服务器已停用",
+      "MCP Tools": "MCP 工具",
+      "MCP error": "MCP 错误",
+      "MCP server error": "MCP 服务器错误",
+      "MCP tools": "MCP 工具",
+      "Machine": "机器",
+      "Main Agent": "主 Agent",
+      "Make default": "设为默认",
+      "Make your coding agent a better engineer": "让你的编程 Agent 成为更好的工程师",
+      "Manage Hooks": "管理钩子",
+      "Manage and delete your data anytime": "随时管理和删除你的数据",
+      "Manage fine-grained permissions for GitHub.": "管理 GitHub 的细粒度权限。",
+      "Manage your conversations from the companion website.": "在配套网站上管理你的对话。",
+      "Manage your keybinding scheme and customize shortcuts in VS Code.": "在 VS Code 里管理快捷键方案和自定义快捷键。",
+      "Manage your model quota and credits.": "管理你的模型配额和额度。",
+      "Managed by Enterprise Gateway": "由企业网关管理",
+      "Managed by plugin": "由插件管理",
+      "Manager": "管理器",
+      "Manifest Changes": "清单改动",
+      "Manual Order": "手动排序",
+      "Many external websites (such as Google Search, GitHub, or Wikipedia) restrict iframe embedding via": "很多外部网站（比如 Google 搜索、GitHub、维基百科）限制了 iframe 嵌入，方式是",
+      "Mark All as Read": "全部标为已读",
+      "Mark This Conversation as Read": "把这个对话标为已读",
+      "Mark This Conversation as Unread": "把这个对话标为未读",
+      "Markdown Artifact Width": "Markdown 产出物宽度",
+      "Markdown attachment": "Markdown 附件",
+      "Markdown view mode": "Markdown 查看模式",
+      "Marketplace notice": "插件市场提示",
+      "Match Case (Aa)": "区分大小写（Aa）",
+      "Match Whole Word (ab)": "全字匹配（ab）",
+      "Match case": "区分大小写",
+      "Match whole word": "全字匹配",
+      "Matcher:": "匹配条件：",
+      "Mcp Tools": "MCP 工具",
+      "Media actions": "媒体操作",
+      "Members": "成员",
+      "Mention Page": "引用页面",
+      "Merge Conflict": "合并冲突",
+      "Merged": "已合并",
+      "Mermaid diagram": "Mermaid 图表",
+      "Message this chat": "给这个对话发消息",
+      "Messages now send immediately. Configure in": "消息现在会立即发送。可以在这里设置：",
+      "Method not found": "找不到方法",
+      "Migrate with Agent": "让 Agent 迁移",
+      "Minimize side question": "最小化旁支提问",
+      "Minimized": "已最小化",
+      "Minus": "减号",
+      "Missing": "缺失",
+      "Missing a repository? Configure on GitHub": "找不到仓库？去 GitHub 上配置",
+      "Model Credits": "模型额度",
+      "Model Quota": "模型配额",
+      "Model Summarization Failed": "模型总结失败",
+      "Model quota reached": "已达到模型配额",
+      "Models & Usage": "模型与用量",
+      "Models Tab": "模型标签页",
+      "Modified": "已修改",
+      "Modified Files": "已修改的文件",
+      "Modified in": "修改于",
+      "Monday": "星期一",
+      "More Plugins": "更多插件",
+      "More cloud environments": "更多云端环境",
+      "More toolbar actions": "更多工具栏操作",
+      "Mouse button pressed": "鼠标已按下",
+      "Mouse button released": "鼠标已松开",
+      "Move Conversation Down": "下移对话",
+      "Move Conversation Up": "上移对话",
+      "Move Down": "下移",
+      "Move Up": "上移",
+      "Move to Group": "移到分组",
+      "Move to New Group": "移到新分组",
+      "Movie": "影片",
+      "Mute Voice Mic": "语音模式麦克风静音",
+      "Mute Voice Speaker": "语音模式扬声器静音",
+      "Navigate to": "转到",
+      "Navigation": "导航",
+      "Needs Attention": "需要处理",
+      "Needs Input": "需要输入",
+      "Needs attention": "需要处理",
+      "Needs reconnect": "需要重新连接",
+      "Needs relaunch": "需要重新启动",
+      "Network Permissions": "网络权限",
+      "New": "新",
+      "New Agent Script": "新建 Agent 脚本",
+      "New Browser": "新建浏览器",
+      "New Conversation Button": "新建对话按钮",
+      "New Coordinator": "新建协调者",
+      "New Fig Workspace": "新建 Fig 工作区",
+      "New Group": "新建分组",
+      "New Preview": "新建预览",
+      "New Side Question": "新建旁支提问",
+      "New Terminal": "新建终端",
+      "New Terminal Tab": "新建终端标签页",
+      "New Workspace": "新建工作区",
+      "New Worktree": "新建工作树",
+      "New automation": "新建自动化任务",
+      "New conversation button": "新建对话按钮",
+      "New coordinator": "新建协调者",
+      "New hook name": "新钩子名称",
+      "New models have been enabled for you!": "已为你开放新模型！",
+      "Next Match (Enter)": "下一个匹配（Enter）",
+      "Next Page": "下一页",
+      "Next Side Panel Tab": "下一个侧边面板标签页",
+      "Next card": "下一张卡片",
+      "Next match": "下一个匹配",
+      "Next question": "下一个问题",
+      "Next side question": "下一个旁支提问",
+      "Nickname": "昵称",
+      "No MCP servers installed": "还没有安装 MCP 服务器",
+      "No Models Available": "没有可用的模型",
+      "No Plugins Available": "没有可用的插件",
+      "No active terminals": "没有运行中的终端",
+      "No active terminals. Click + to create one.": "没有运行中的终端。点 + 新建一个。",
+      "No archived conversations": "没有已归档的对话",
+      "No background tasks": "没有后台任务",
+      "No branches": "没有分支",
+      "No branches found": "找不到分支",
+      "No browser pages open": "没有打开的浏览器页面",
+      "No bundles available.": "没有可用的套装。",
+      "No changes to amend": "没有可修改提交的改动",
+      "No changes to review": "没有要审阅的改动",
+      "No comments yet": "还没有评论",
+      "No compatible devices found.": "找不到兼容的设备。",
+      "No content available for this resource": "这个资源没有可用内容",
+      "No coordinators": "没有协调者",
+      "No custom agents yet.": "还没有自定义 Agent。",
+      "No customizations match your search.": "没有符合搜索的自定义项。",
+      "No documents": "没有文档",
+      "No environments found": "找不到环境",
+      "No events recorded": "没有记录到事件",
+      "No events recorded.": "没有记录到事件。",
+      "No file changes": "没有文件改动",
+      "No files or folders found": "找不到文件或文件夹",
+      "No handlers configured for": "没有配置处理程序：",
+      "No hosts in": "没有主机：",
+      "No instances yet.": "还没有实例。",
+      "No instructions.": "没有说明。",
+      "No internet. Agent features may not work.": "没有网络，Agent 功能可能用不了。",
+      "No keyboard shortcuts found matching your filter.": "没有符合筛选条件的快捷键。",
+      "No links": "没有链接",
+      "No longer available": "已不可用",
+      "No matching": "没有匹配的",
+      "No matching conversations": "没有匹配的对话",
+      "No matching files": "没有匹配的文件",
+      "No matching flags": "没有匹配的开关",
+      "No matching plugins found.": "没有找到匹配的插件。",
+      "No matching project folders. Apply to use the custom URI.": "没有匹配的项目文件夹。点「应用」使用自定义地址。",
+      "No matching resources found.": "没有找到匹配的资源。",
+      "No matching results": "没有匹配的结果",
+      "No models are available for your current project or account. Please check your project settings and IAM permissions.": "你当前的项目或账号没有可用的模型，请检查项目设置和 IAM 权限。",
+      "No models available": "没有可用的模型",
+      "No more older messages": "没有更早的消息了",
+      "No notebook cells were found.": "没有找到笔记本单元格。",
+      "No plugin loads from this folder.": "这个文件夹里没有可加载的插件。",
+      "No plugins available": "没有可用的插件",
+      "No plugins available.": "没有可用的插件。",
+      "No previous worktrees": "没有以前的工作树",
+      "No project selected": "未选择项目",
+      "No project selected or project management not available.": "没有选择项目，或者项目管理不可用。",
+      "No projects created": "还没有创建项目",
+      "No quota information available.": "没有配额信息。",
+      "No recent downloads": "最近没有下载",
+      "No resources available": "没有可用的资源",
+      "No runs yet": "还没有运行记录",
+      "No sign-in needed": "不需要登录",
+      "No sign-in required. This app is ready to use.": "不需要登录，这个应用可以直接用。",
+      "No sites have cookies in the built-in browser.": "内置浏览器里还没有网站保存 Cookie。",
+      "No sites match “": "没有符合的网站：“",
+      "No skills available": "没有可用的技能",
+      "No subagents": "没有子 Agent",
+      "No uploads": "没有上传的文件",
+      "No workspaces open.": "没有打开的工作区。",
+      "Not Found": "未找到",
+      "Not Signed In": "未登录",
+      "Not available": "不可用",
+      "Not configured": "未配置",
+      "Not connected": "未连接",
+      "Not on a branch": "不在任何分支上",
+      "Not scheduled": "未安排",
+      "Not secure": "不安全",
+      "Not signed in": "未登录",
+      "Not started": "未开始",
+      "Not suitable for Best-of-N": "不适合多选一",
+      "Notebook cell output": "笔记本单元格输出",
+      "Nothing is running right now": "现在没有在运行的任务",
+      "Nothing said yet": "还没说话",
+      "Notification Preferences": "通知偏好",
+      "Number of hours": "小时数",
+      "Offline": "离线",
+      "On a schedule": "按计划",
+      "One last thing before getting started…": "开始之前还有最后一件事…",
+      "Online": "在线",
+      "Only Archived": "只看已归档",
+      "Only Automations": "只看自动化任务",
+      "Only Unread": "只看未读",
+      "Only applies when grouped by status": "只在按状态分组时生效",
+      "Only stored on your machine.": "只保存在你的电脑上。",
+      "Open Antigravity IDE": "打开 Antigravity IDE",
+      "Open Appearance": "打开外观设置",
+      "Open Blame in Code Search": "在代码搜索里打开 Blame",
+      "Open Browser Setup": "打开浏览器设置",
+      "Open Command Palette": "打开命令面板",
+      "Open Conversation Picker": "打开对话选择器",
+      "Open Conversation in New Tab": "在新标签页中打开对话",
+      "Open Diff": "打开差异",
+      "Open File": "打开文件",
+      "Open File Search": "打开文件搜索",
+      "Open Folder (Interactive)": "打开文件夹（交互式）",
+      "Open Google Chrome on the machine running Antigravity.": "在运行 Antigravity 的电脑上打开 Google Chrome。",
+      "Open IDE": "打开 IDE",
+      "Open Image in New Tab": "在新标签页中打开图片",
+      "Open In": "打开方式",
+      "Open Keyboard Shortcuts": "打开键盘快捷键",
+      "Open Link in External Browser": "在外部浏览器中打开链接",
+      "Open Link in New Tab": "在新标签页中打开链接",
+      "Open MCP Config": "打开 MCP 配置",
+      "Open Preferences": "打开偏好设置",
+      "Open Search": "打开搜索",
+      "Open Source Code": "打开源代码",
+      "Open System Browser": "打开系统浏览器",
+      "Open Tabs": "已打开的标签页",
+      "Open Terminal": "打开终端",
+      "Open Trajectory Debug View": "打开轨迹调试视图",
+      "Open URL": "打开网址",
+      "Open Workspace Selector": "打开工作区选择器",
+      "Open a merge request": "发起合并请求",
+      "Open a pull request": "发起 Pull Request",
+      "Open extracted DOM in editor": "在编辑器中打开提取的 DOM",
+      "Open in Antigravity IDE": "在 Antigravity IDE 中打开",
+      "Open in Built-in Browser": "在内置浏览器中打开",
+      "Open in Cider": "在 Cider 中打开",
+      "Open in Code Search": "在代码搜索中打开",
+      "Open in External Browser": "在外部浏览器中打开",
+      "Open in Hub": "在 Hub 中打开",
+      "Open in New Tab": "在新标签页中打开",
+      "Open in New Window": "在新窗口中打开",
+      "Open in Notebook View": "在笔记本视图中打开",
+      "Open in Remote Control": "在远程控制中打开",
+      "Open in Side Pane": "在侧边窗格中打开",
+      "Open in Side Panel": "在侧边面板中打开",
+      "Open in Tab": "在标签页中打开",
+      "Open in full conversation": "在完整对话中打开",
+      "Open in new tab": "在新标签页中打开",
+      "Open in side pane": "在侧边窗格中打开",
+      "Open in tab": "在标签页中打开",
+      "Open link": "打开链接",
+      "Open on another device": "在另一台设备上打开",
+      "Open on phone": "在手机上打开",
+      "Open project settings": "打开项目设置",
+      "Open search in external browser": "在外部浏览器中搜索",
+      "Open settings menu": "打开设置菜单",
+      "Open side-by-side view": "打开并排视图",
+      "Open the change": "打开这项改动",
+      "Open the page in system browser": "在系统浏览器中打开页面",
+      "Operating System": "操作系统",
+      "Optimize the interface and terminal output for screen readers.": "针对屏幕阅读器优化界面和终端输出。",
+      "Optimized for you": "为你优化",
+      "Optional": "可选",
+      "Optional boolean filter": "可选的布尔筛选",
+      "Optional branch or ref used when creating a new Cog workspace (defaults to main if unset).": "从提示词创建新 Cog 工作区时使用的分支或引用（不填默认为 main）。",
+      "Orchestrator": "编排器",
+      "Orchestrator Model": "编排模型",
+      "Orchestrator Settings": "编排器设置",
+      "Organization Allowed Domains (Read-Only)": "组织允许的域名（只读）",
+      "Organizations": "组织",
+      "Other Customizations": "其他自定义项",
+      "Other License": "其他许可证",
+      "Other sign-in options": "其他登录方式",
+      "Output:": "输出：",
+      "Outside of folders file access policy": "文件夹外文件访问策略",
+      "Override feature environment": "覆盖功能环境",
+      "Page": "页面",
+      "Page contents": "页面内容",
+      "Password Prompt Blocked": "已阻止密码输入提示",
+      "Paste a code instead": "改为粘贴代码",
+      "Paste auth code": "粘贴验证码",
+      "Paste authorization code": "粘贴授权码",
+      "Paste code": "粘贴代码",
+      "Paste new key": "粘贴新密钥",
+      "Paste the code shown after you sign in.": "粘贴登录后显示的代码。",
+      "Path copied!": "路径已复制！",
+      "Pay As You Go": "按量付费",
+      "Payload:": "负载：",
+      "Period": "句号",
+      "Permanently delete": "永久删除",
+      "Permanently delete your remote conversations, projects, scheduled tasks, connected plugins and settings. Data in the desktop app and your Google account are not affected.": "永久删除你的远程对话、项目、定时任务、已连接的插件和设置。桌面应用里的数据和你的 Google 账号不受影响。",
+      "Permission Details": "权限详情",
+      "Permission Settings": "权限设置",
+      "Permission approval scope": "权限批准范围",
+      "Pick up this remote conversation on your phone or in any browser. Scan the QR code or open the link below.": "在手机或任意浏览器上继续这个远程对话。扫描二维码或打开下面的链接。",
+      "Pin / Unpin Conversation": "置顶 / 取消置顶对话",
+      "Pin This Conversation": "置顶这个对话",
+      "Pinned Actions": "固定的操作",
+      "Plan upgrade required": "需要升级套餐",
+      "Plans the work, makes design decisions, and reviews the result. Pick a top-tier model. You can also pick one per conversation from the Orchestrator row in the model menu.": "规划工作、做设计决策、审查结果。选一个顶级模型。也可以在模型菜单的「编排器」一行里为单个对话选择。",
+      "Play a sound when your action is needed or the agent finishes.": "需要你处理或 Agent 完成时播放提示音。",
+      "Playback available": "可以回放",
+      "Please describe the feature you'd like to see. The more detailed the requirements, the easier it will be for our team to incorporate your ideas. Some helpful information includes:": "请描述你想要的功能。需求写得越详细，我们的团队越容易采纳你的想法。可以包括这些信息：",
+      "Please describe the issue in detail. The more actionable your feedback, the quicker our team can address your request. Some helpful information includes:": "请详细描述问题。反馈越具体，我们的团队越快处理。可以包括这些信息：",
+      "Please describe your auth or billing issue. More details will help our support team resolve your issue quicker. Some helpful information includes:": "请描述你的登录或账单问题。细节越多，支持团队越快帮你解决。可以包括这些信息：",
+      "Please list the steps to reproduce the issue": "请列出复现问题的步骤",
+      "Please sign in using the Antigravity sidebar panel to view this page.": "请在 Antigravity 侧边栏面板中登录后再查看这个页面。",
+      "Please verify your account to continue using": "请验证你的账号后继续使用",
+      "Please verify your account, then sign in again to continue. Learn more by visiting our": "请验证你的账号，然后重新登录继续。详情请访问我们的",
+      "Plugin Operation Error:": "插件操作错误：",
+      "Plugin details": "插件详情",
+      "Plugin metadata": "插件元数据",
+      "Plugin update required": "需要更新插件",
+      "Plugin:": "插件：",
+      "Plugins Options": "插件选项",
+      "Plugins are packaged collections of skills and MCPs to help the Agent": "插件是打包好的技能和 MCP 集合，用来帮助 Agent",
+      "Plugins are packaged collections of skills and MCPs to help the Agent in": "插件是打包好的技能和 MCP 集合，用来帮助 Agent 完成",
+      "Polygon": "多边形",
+      "Popup": "弹出窗口",
+      "Post Invocation": "调用之后",
+      "Post Tool Use": "工具使用之后",
+      "Pre Invocation": "调用之前",
+      "Pre Tool Use": "工具使用之前",
+      "Preset": "预设",
+      "Press keys...": "请按键…",
+      "Preview disabled (experiment off)": "预览已停用（实验功能已关闭）",
+      "Preview is not available for this file type.": "这种文件类型无法预览。",
+      "Preview unavailable": "无法预览",
+      "Previous": "上一个",
+      "Previous Match (Shift+Enter)": "上一个匹配（Shift+Enter）",
+      "Previous Page": "上一页",
+      "Previous Side Panel Tab": "上一个侧边面板标签页",
+      "Previous Worktrees": "以前的工作树",
+      "Previous card": "上一张卡片",
+      "Previous match": "上一个匹配",
+      "Previous question": "上一个问题",
+      "Previous side question": "上一个旁支提问",
+      "Pricing is based on public API pricing": "价格按公开的 API 价格计算",
+      "Print telemetry to the console": "把使用数据输出到控制台",
+      "Privacy Notice": "隐私声明",
+      "Proceed": "继续",
+      "Proceed Anyway": "仍然继续",
+      "Proceed to": "继续前往",
+      "Proceed with Plan": "按计划继续",
+      "Prohibited Use Policy": "禁止使用政策",
+      "Project 4K interface without developer tooling.": "不含开发工具的 Project 4K 界面。",
+      "Project Agent": "项目 Agent",
+      "Project Folders": "项目文件夹",
+      "Project General": "项目常规设置",
+      "Project ID:": "项目 ID：",
+      "Project Name": "项目名称",
+      "Project Settings": "项目设置",
+      "Project already exists": "项目已存在",
+      "Project location": "项目位置",
+      "Project options": "项目选项",
+      "Promote to conversation": "升级为对话",
+      "Prompt": "提示词",
+      "Prompt to run when triggered...": "触发时要运行的提示词…",
+      "Prompt too simple": "提示词太简单",
+      "Protocol": "协议",
+      "Prototype": "原型",
+      "Provide Feedback": "提供反馈",
+      "Provide Google Cloud Project": "提供 Google Cloud 项目",
+      "Pull Requests": "Pull Request",
+      "Pull request actions": "Pull Request 操作",
+      "Pull request creation": "创建 Pull Request",
+      "Pull request numbers": "Pull Request 编号",
+      "Pull requests": "Pull Request",
+      "Purchase Credits": "购买额度",
+      "Push": "推送",
+      "Push succeeded": "推送成功",
+      "Queued Messages": "排队消息",
+      "Quick Start": "快速开始",
+      "Quota": "配额",
+      "Quote": "引用",
+      "Quote Selection": "引用所选内容",
+      "Radar": "雷达",
+      "Raw": "原始内容",
+      "Read URL rejected": "读取网址被拒绝",
+      "Read URLs": "读取网址",
+      "Read access": "读取权限",
+      "Read access to code, refs, commits, and other repository contents.": "代码、引用、提交和其他仓库内容的读取权限。",
+      "Read files": "读取文件",
+      "Readme": "自述文件",
+      "Reads": "读取",
+      "Ready": "就绪",
+      "Reason for opting out": "不参与的原因",
+      "Receive product updates, tips, and promotions from Google Antigravity via email.": "通过邮件接收 Google Antigravity 的产品动态、技巧和优惠信息。",
+      "Recent Events": "最近事件",
+      "Recent Files": "最近的文件",
+      "Recent files": "最近的文件",
+      "Recommended": "推荐",
+      "Reconnect": "重新连接",
+      "Record Audio": "录音",
+      "Recordings": "录音",
+      "Red": "红色",
+      "Redact": "隐去",
+      "References": "引用",
+      "Refresh MCP servers": "刷新 MCP 服务器",
+      "Refresh all credentials": "刷新全部凭据",
+      "Refresh gcert Credentials": "刷新 gcert 凭据",
+      "Refresh quota and credits data": "刷新配额和额度数据",
+      "Refreshed credentials for all automations.": "已刷新所有自动化任务的凭据。",
+      "Reject Step": "拒绝这一步",
+      "Relaunch ↻": "重新启动 ↻",
+      "Reload Window": "重新加载窗口",
+      "Reload app": "重新加载应用",
+      "Reload this window.": "重新加载这个窗口。",
+      "Remote": "远程",
+      "Remote Agents Data": "远程 Agent 数据",
+      "Remote Control Instances": "远程控制实例",
+      "Remote Control Issue": "远程控制问题",
+      "Remote Control isn't active on this instance. Enable it in": "这个实例没有开启远程控制。请在这里开启：",
+      "Remote Control link": "远程控制链接",
+      "Remote Projects": "远程项目",
+      "Remote agents are busy": "远程 Agent 都在忙",
+      "Remote branches": "远程分支",
+      "Remote only": "仅远程",
+      "Remove From Split": "移出分屏",
+      "Remove Shortcut": "删除快捷键",
+      "Remove audio": "删除音频",
+      "Remove bundle": "移除套装",
+      "Remove from Group": "移出分组",
+      "Remove from Recent": "从最近中移除",
+      "Remove from Split": "移出分屏",
+      "Remove from history": "从历史记录中删除",
+      "Remove from history (Shift+Delete)": "从历史记录中删除（Shift+Delete）",
+      "Remove from list": "从列表中移除",
+      "Remove individual uploaded files or connected resources in Project Settings, or delete a project or conversation to remove its stored files.": "在「项目设置」里删除单个上传的文件或已连接的资源，或者删除项目、对话来移除它保存的文件。",
+      "Remove policy": "移除策略",
+      "Remove resource": "移除资源",
+      "Remove trigger": "移除触发条件",
+      "Removed from the marketplace. Stays installed until you uninstall it.": "已从插件市场下架。在你卸载之前会一直保留。",
+      "Rename Conversation": "重命名对话",
+      "Rename Group": "重命名分组",
+      "Rename This Conversation": "重命名这个对话",
+      "Renamed": "已重命名",
+      "Render failed": "渲染失败",
+      "Rendering playback": "正在渲染回放",
+      "Reopen Closed Tab": "重新打开已关闭的标签页",
+      "Reopen Locally": "在本地重新打开",
+      "Reopen ↗": "重新打开 ↗",
+      "Repeat every": "重复间隔",
+      "Repeat unit": "重复单位",
+      "Replace the default browser right-click menu with quick actions.": "用快捷操作替换浏览器默认的右键菜单。",
+      "Replace with": "替换为",
+      "Replace with New": "替换为新的",
+      "Replacing removes the currently installed plugin and installs the new one in its place.": "替换会卸载当前安装的插件，并在原位置装上新的。",
+      "Reply": "回复",
+      "Reply to /help": "回复 /help",
+      "Repo": "仓库",
+      "Repositories": "仓库",
+      "Repository": "仓库",
+      "Request Review": "请求审阅",
+      "Research anything": "研究任何问题",
+      "Reset All to Defaults": "全部恢复默认",
+      "Reset all shortcuts to defaults": "把所有快捷键恢复默认",
+      "Reset to preset": "恢复为预设",
+      "Reset zoom (0)": "重置缩放（0）",
+      "Resize side question panel": "调整旁支提问面板大小",
+      "Resize terminal panes": "调整终端窗格大小",
+      "Resolved in chat": "已在对话中解决",
+      "Resolving link…": "正在解析链接…",
+      "Resolving permissions...": "正在解析权限…",
+      "Resources": "资源",
+      "Restore Conversation": "恢复对话",
+      "Restricts agent tools to a secure, isolated local sandbox.": "把 Agent 工具限制在一个安全隔离的本地沙盒里。",
+      "Results": "结果",
+      "Resume 1 comment draft": "继续 1 条评论草稿",
+      "Resume comment draft": "继续评论草稿",
+      "Resume it to load this file.": "恢复运行后才能加载这个文件。",
+      "Resume it to open a new terminal. Anything that was running in this one has stopped.": "恢复运行后才能打开新终端。这个终端里原来在运行的东西已经停止了。",
+      "Resume this agent where it paused": "让这个 Agent 从暂停的地方继续",
+      "Retry requested": "已请求重试",
+      "Revert file changes": "还原文件改动",
+      "Review bundle before adding": "添加前先检查套装",
+      "Review contents": "查看内容",
+      "Review plans and walkthroughs": "审阅计划和讲解",
+      "Right": "右",
+      "Robot": "机器人",
+      "Run": "运行",
+      "Run (unsandboxed)": "运行（不使用沙盒）",
+      "Run Now": "立即运行",
+      "Run a prompt on a schedule, like a morning summary of yesterday's changes. Runs show up here.": "按计划运行一段提示词，比如每天早上汇总昨天的改动。运行记录会显示在这里。",
+      "Run all commands without restrictions.": "不受限制地运行所有命令。",
+      "Run in a new worktree": "在新工作树中运行",
+      "Run in your current workspace": "在当前工作区中运行",
+      "Run terminal commands with sandbox restrictions.": "在沙盒限制下运行终端命令。",
+      "Run the app against a Linux environment. Connecting relaunches the app into the selected WSL distro.": "在 Linux 环境中运行应用。连接后应用会在选中的 WSL 发行版中重新启动。",
+      "Run visibility": "运行可见性",
+      "Running (Dev only)": "运行中（仅开发版）",
+      "Running processes are killed. This cannot be undone.": "正在运行的进程会被结束，无法撤销。",
+      "Runs as": "运行身份",
+      "Runs on this computer": "在这台电脑上运行",
+      "Runs remotely": "远程运行",
+      "Runtime permission": "运行时权限",
+      "SSH Config": "SSH 配置",
+      "SSH Host": "SSH 主机",
+      "SSH Host…": "SSH 主机…",
+      "SSH host": "SSH 主机",
+      "Sample GDoc": "示例 Google 文档",
+      "Saturday": "星期六",
+      "Save audio recordings": "保存录音",
+      "Saving…": "正在保存…",
+      "Scan the code to open this device in Remote Control, or": "扫码在远程控制中打开这台设备，或者",
+      "Scope": "范围",
+      "Scopes:": "范围：",
+      "Screen": "屏幕",
+      "Screen Reader Mode": "屏幕阅读器模式",
+      "Screen Recording": "屏幕录制",
+      "Screen locked: agents can't use this Mac until you unlock it": "屏幕已锁定：解锁之前 Agent 无法使用这台 Mac",
+      "Screenshot must be under 10 MB": "截图必须小于 10 MB",
+      "Scroll position": "滚动位置",
+      "Scrolled": "已滚动",
+      "Search Google Drive": "搜索 Google Drive",
+      "Search MCP servers by name": "按名称搜索 MCP 服务器",
+      "Search Projects": "搜索项目",
+      "Search Recent Workspaces": "搜索最近的工作区",
+      "Search branches": "搜索分支",
+      "Search connectors": "搜索连接器",
+      "Search conversations...": "搜索对话…",
+      "Search customizations...": "搜索自定义项…",
+      "Search file contents...": "搜索文件内容…",
+      "Search filters…": "搜索筛选条件…",
+      "Search flags": "搜索开关",
+      "Search for MCP servers to add to your configuration": "搜索要添加到配置里的 MCP 服务器",
+      "Search for commands...": "搜索命令…",
+      "Search for content to open": "搜索要打开的内容",
+      "Search for conversations...": "搜索对话…",
+      "Search projects...": "搜索项目…",
+      "Search results": "搜索结果",
+      "Search shortcuts": "搜索快捷键",
+      "Search shortcuts...": "搜索快捷键…",
+      "Search sites": "搜索网站",
+      "Search sites...": "搜索网站…",
+      "Search triggers…": "搜索触发条件…",
+      "Searching…": "正在搜索…",
+      "Security": "安全",
+      "Security preset": "安全预设",
+      "See Activity": "查看动态",
+      "See Plans": "查看套餐",
+      "See all (": "查看全部（",
+      "See more results": "查看更多结果",
+      "Seek": "跳转",
+      "Select": "选择",
+      "Select Environment": "选择环境",
+      "Select License": "选择许可证",
+      "Select Model": "选择模型",
+      "Select Model to Send Message": "选择发送消息用的模型",
+      "Select Next Conversation": "选择下一个对话",
+      "Select Previous Conversation": "选择上一个对话",
+      "Select Project": "选择项目",
+      "Select Sidebar Item 1": "选择侧边栏第 1 项",
+      "Select Sidebar Item 2": "选择侧边栏第 2 项",
+      "Select Sidebar Item 3": "选择侧边栏第 3 项",
+      "Select Sidebar Item 4": "选择侧边栏第 4 项",
+      "Select Sidebar Item 5": "选择侧边栏第 5 项",
+      "Select Sidebar Item 6": "选择侧边栏第 6 项",
+      "Select Sidebar Item 7": "选择侧边栏第 7 项",
+      "Select Sidebar Item 8": "选择侧边栏第 8 项",
+      "Select Sidebar Item 9": "选择侧边栏第 9 项",
+      "Select Worktree": "选择工作树",
+      "Select a folder.": "选择一个文件夹。",
+      "Select a model using the model selector in the input box": "在输入框的模型选择器里选一个模型",
+      "Select all in": "全选：",
+      "Select an option": "选择一项",
+      "Select an option...": "选择一项…",
+      "Select another model": "换一个模型",
+      "Select one or more options": "选择一项或多项",
+      "Select or enter a workspace URI": "选择或输入工作区地址",
+      "Select text in the PDF and click + Add to start commenting.": "在 PDF 里选中文字，点「+ 添加」开始评论。",
+      "Select text in the artifact to add a comment": "在产出物里选中文字来添加评论",
+      "Select the latest snapshot from the": "选择最新的快照：",
+      "Select the workspace type that will be used for new conversations started with the New Workspace option.": "选择用「新建工作区」开始新对话时使用的工作区类型。",
+      "Select workspace": "选择工作区",
+      "Select your license": "选择你的许可证",
+      "Select...": "选择…",
+      "Selected element preview": "所选元素预览",
+      "Selected region": "所选区域",
+      "Semantic": "语义",
+      "Semicolon": "分号",
+      "Send Feedback": "发送反馈",
+      "Send Now": "立即发送",
+      "Send command input?": "发送命令输入？",
+      "Send feedback as": "反馈发送人：",
+      "Send messages with the keyboard's Enter key instead of starting a new line.": "用键盘的 Enter 键发送消息，而不是换行。",
+      "Send reply": "发送回复",
+      "Sending transcribed message...": "正在发送转写的消息…",
+      "Sends after agent finishes working": "Agent 完成后发送",
+      "Sent": "已发送",
+      "Sent Message": "已发送的消息",
+      "Services this plugin connects to on your behalf.": "这个插件代表你连接的服务。",
+      "Session Summary": "会话摘要",
+      "Set Project Name": "设置项目名称",
+      "Set at least one scope filter": "至少设置一个范围筛选条件",
+      "Set the rules, define the boundaries.": "定好规则，划好边界。",
+      "Set up": "设置",
+      "Set up authentication": "设置身份验证",
+      "Set up my environment": "设置我的环境",
+      "Settings Unavailable": "设置不可用",
+      "Settings for conversations outside of projects.": "项目以外的对话的设置。",
+      "Settings ↗": "设置 ↗",
+      "Setup": "设置",
+      "Setup required": "需要设置",
+      "Setup script failed.": "初始化脚本运行失败。",
+      "Setup script ran successfully.": "初始化脚本运行成功。",
+      "Share your referral link with friends": "把邀请链接分享给朋友",
+      "Shield": "盾牌",
+      "Show 10": "显示 10 条",
+      "Show 5": "显示 5 条",
+      "Show All": "显示全部",
+      "Show Automation Conversations": "显示自动化任务对话",
+      "Show Details": "显示详情",
+      "Show Plugin Conversations": "显示插件对话",
+      "Show Remote Control QR code": "显示远程控制二维码",
+      "Show how full the context window is next to the send button. Click it for a breakdown and to see your model quota.": "在发送按钮旁边显示上下文窗口用了多少。点它可以看明细和模型配额。",
+      "Show in Sidebar": "在侧边栏中显示",
+      "Show in folder": "在文件夹中显示",
+      "Show more (": "显示更多（",
+      "Show or Hide Plugins": "显示或隐藏插件",
+      "Show submitted (": "显示已提交的（",
+      "Show system notifications when your action is needed or the agent finishes.": "需要你处理或 Agent 完成时显示系统通知。",
+      "Side Question": "旁支提问",
+      "Side Question Selection": "旁支提问所选内容",
+      "Side Questions": "旁支提问",
+      "Sidecar View": "侧车视图",
+      "Sidecar error": "侧车出错",
+      "Sidecar feature is not available.": "侧车功能不可用。",
+      "Sign in again": "重新登录",
+      "Sign in needed": "需要登录",
+      "Sign in required": "需要登录",
+      "Sign in required.": "需要登录。",
+      "Sign in to an app once and your agent can use it on any device. Open an app to see the account it uses or to disconnect it.": "在一个应用里登录一次，Agent 在任何设备上都能用它。打开应用可以查看它用的账号，或者断开连接。",
+      "Sign in to finish setting up this plugin.": "登录以完成这个插件的设置。",
+      "Sign in with a different account": "用其他账号登录",
+      "Sign up for newsletters, tips and tricks, and other notifications about": "订阅新闻、技巧和其他通知：",
+      "Sign-in required": "需要登录",
+      "Signed in as": "已登录：",
+      "Signed-in accounts": "已登录的账号",
+      "Simplified interface for research, writing, and everyday tasks.": "精简界面，适合研究、写作和日常任务。",
+      "Simulate a different host (Electron, desktop or mobile Web, Extension, remote control, or installed PWA).": "模拟其他宿主（Electron、桌面或移动网页、扩展、远程控制、已安装的 PWA）。",
+      "Simulate a different user cohort (Google, External, Enterprise).": "模拟其他用户群（Google、外部、企业）。",
+      "Simulate running on a different OS.": "模拟在其他操作系统上运行。",
+      "Site data cleared for": "已清除这个网站的数据：",
+      "Sites with cookies": "保存了 Cookie 的网站",
+      "Skipped": "已跳过",
+      "Slash": "斜杠",
+      "Sliders": "滑块",
+      "Snooze for 24 Hours": "24 小时内不再提醒",
+      "Some non-image binary content was truncated.": "部分非图片的二进制内容被截断了。",
+      "Something else (optional)": "其他（可选）",
+      "Something went wrong!": "出错了！",
+      "Sorry, this account is ineligible to use": "抱歉，这个账号没有资格使用",
+      "Sort By": "排序方式",
+      "Sort Conversations": "对话排序",
+      "Sound": "声音",
+      "Source": "来源",
+      "Source:": "来源：",
+      "Sources": "来源",
+      "Space": "空格",
+      "Sparkles": "闪光",
+      "Speedometer": "速度表",
+      "Split": "分屏",
+      "Split Conversation Horizontally": "水平拆分对话",
+      "Split Conversation Vertically": "垂直拆分对话",
+      "Split Down": "向下拆分",
+      "Split Right": "向右拆分",
+      "Split Terminal": "拆分终端",
+      "Square": "方形",
+      "Stage change": "暂存改动",
+      "Staged Changes": "已暂存的改动",
+      "Staged index changes and working tree changes": "已暂存的索引改动和工作区改动",
+      "Stamp": "印章",
+      "Standalone": "独立",
+      "Standalone Terminals": "独立终端",
+      "Start Best-of-": "开始多选一：",
+      "Start Voice Recording": "开始录音",
+      "Start it again.": "重新启动它。",
+      "Starting": "正在启动",
+      "Starting terminal…": "正在启动终端…",
+      "Starting the conversation…": "正在开始对话…",
+      "Stay up to date.": "随时了解最新动态。",
+      "Step Type": "步骤类型",
+      "Steps to Reproduce": "复现步骤",
+      "Steps to reproduce the issue": "复现问题的步骤",
+      "Still running": "仍在运行",
+      "Stop All Subagents": "停止所有子 Agent",
+      "Stop Editing": "停止编辑",
+      "Stop Execution": "停止执行",
+      "Stop Recording": "停止录音",
+      "Stop SSH Server…": "停止 SSH 服务器…",
+      "Stop Side Question": "停止旁支提问",
+      "Stop Subagent": "停止子 Agent",
+      "Stop Task": "停止任务",
+      "Stop Voice Recording": "停止录音",
+      "Stop execution": "停止执行",
+      "Stop side question": "停止旁支提问",
+      "Stop subagent": "停止子 Agent",
+      "Stop this agent": "停止这个 Agent",
+      "Stop transcription": "停止转写",
+      "Stopped": "已停止",
+      "Stopping…": "正在停止…",
+      "Stored and mounted in your cloud environment": "保存并挂载在你的云端环境里",
+      "Stream and control": "串流和控制",
+      "Stream ended": "串流已结束",
+      "Su Mo Tu We Th Fr Sa": "日 一 二 三 四 五 六",
+      "Subagent Conversation": "子 Agent 对话",
+      "Subagent ended": "子 Agent 已结束",
+      "Subagents": "子 Agent",
+      "Submit Prompt (Alternate to Enter)": "提交提示词（Enter 的备用键）",
+      "Submit comment": "提交评论",
+      "Submitting...": "正在提交…",
+      "Subscription": "订阅",
+      "Substring or list check (e.g.": "子串或列表检查（例如",
+      "Subtitles": "字幕",
+      "Successfully imported project:": "已成功导入项目：",
+      "Summarizing call…": "正在总结通话…",
+      "Sun Mon Tue Wed Thu Fri Sat": "日 一 二 三 四 五 六",
+      "Sunday": "星期日",
+      "Sunday Monday Tuesday Wednesday Thursday Friday Saturday": "星期日 星期一 星期二 星期三 星期四 星期五 星期六",
+      "Switch IDE Workspace": "切换 IDE 工作区",
+      "Switch Roles": "切换角色",
+      "Switch To": "切换到",
+      "Switch mic": "切换麦克风",
+      "Switch to This Computer": "切换到这台电脑",
+      "Sync JJ worktrees to head": "把 JJ 工作树同步到最新",
+      "Sync newly created JJ worktrees to head when starting a conversation.": "开始对话时把新建的 JJ 工作树同步到最新。",
+      "System default app": "系统默认应用",
+      "Table of contents": "目录",
+      "Table options": "表格选项",
+      "Taking longer than usual to load": "加载时间比平时长",
+      "Target": "目标",
+      "Target Tools:": "目标工具：",
+      "Target text in PDF...": "PDF 中的目标文字…",
+      "Task Logs": "任务日志",
+      "Task not found": "找不到任务",
+      "Telemetry is disabled in Settings": "使用数据已在设置中关闭",
+      "Telemetry is turned off for your account.": "你的账号已关闭使用数据。",
+      "Tell the agent what to do instead...": "告诉 Agent 换成做什么…",
+      "Terminal & Tooling Permissions": "终端和工具权限",
+      "Terminal Commands": "终端命令",
+      "Terminal Placement": "终端位置",
+      "Terminal command auto execution": "终端命令自动执行",
+      "Terminal commands": "终端命令",
+      "Terminal window": "终端窗口",
+      "Terminal: Add to Chat": "终端：加入对话",
+      "Terminal: Select All": "终端：全选",
+      "Terminals": "终端",
+      "Terms and Privacy:": "条款和隐私：",
+      "Terms of Service & Data Use": "服务条款和数据使用",
+      "Text": "文本",
+      "Text Selection": "文字选择",
+      "Text attachment": "文本附件",
+      "Text selection is paused for smoother viewing. Search, comments, and annotations still work. Use the toolbar text button when selection is needed.": "为了浏览更流畅，文字选择已暂停。搜索、评论和批注仍然可用。需要选择文字时用工具栏上的文字按钮。",
+      "Thank you! Your feedback has been submitted successfully.": "谢谢！你的反馈已成功提交。",
+      "The Hub sent an unexpected response.": "Hub 返回了意外的响应。",
+      "The agent was prevented from accessing some sites": "Agent 被阻止访问部分网站",
+      "The agent will wait for you to install the browser extension.": "Agent 会等你安装浏览器扩展。",
+      "The app is currently connected to a WSL distro. Reopening locally relaunches it directly on Windows.": "应用当前连接着 WSL 发行版。在本地重新打开会直接在 Windows 上重新启动它。",
+      "The branch was pushed to GitLab.": "分支已推送到 GitLab。",
+      "The breakdown below shows token usage from customizations like rules, skills, and MCP. If a budget is exceeded, large rules are demoted to path pointers and large customizations are excluded automatically.": "下面的明细显示规则、技能、MCP 等自定义项的 token 用量。超出预算时，大的规则会降级成路径指引，大的自定义项会自动排除。",
+      "The change was pushed to Gerrit.": "改动已推送到 Gerrit。",
+      "The conversation could not be loaded because its data was not found.": "找不到这个对话的数据，无法加载。",
+      "The conversation was compacted to fit within the context window.": "为了放进上下文窗口，对话已被压缩。",
+      "The conversation was compacted while generating this response.": "生成这条回复时对话被压缩了。",
+      "The current trigger rate is too high.": "当前触发频率太高。",
+      "The full developer experience.": "完整的开发者体验。",
+      "The main conversation's input isn't available right now.": "主对话的输入框现在不可用。",
+      "The original Gemini 4 model for advanced workflows. Leaving on Nov 30.": "最初的 Gemini 4 模型，适合高级工作流。11 月 30 日下线。",
+      "The remote shared a link for this push.": "远程仓库为这次推送分享了一个链接。",
+      "Themes": "主题",
+      "There are currently no Build with": "目前还没有 Build with",
+      "There are no customizations enabled.": "没有启用任何自定义项。",
+      "There was an error with your authentication. To log in, click": "身份验证出错了。要登录，请点击",
+      "There was an unexpected issue setting up your account.": "设置账号时出现了意外问题。",
+      "These MCP allowlist rules are enforced by your organization's administrator.": "这些 MCP 白名单规则由你所在组织的管理员强制执行。",
+      "These allowed domain rules are set by your organization's administrator and cannot be removed.": "这些允许的域名规则由你所在组织的管理员设置，无法删除。",
+      "These settings can only be changed on the computer running the app, not from a remote session.": "这些设置只能在运行应用的电脑上修改，远程会话里不行。",
+      "Thinking effort": "思考强度",
+      "This": "这个",
+      "This Computer": "这台电脑",
+      "This Google Cloud project is not supported. Input a different project, or sign in with another account.": "不支持这个 Google Cloud 项目。请换一个项目，或者用其他账号登录。",
+      "This bundle has no plugins yet.": "这个套装里还没有插件。",
+      "This cannot be undone.": "这个操作无法撤销。",
+      "This chat is archived.": "这个对话已归档。",
+      "This chat's environment is paused": "这个对话的环境已暂停",
+      "This command ran in the sandbox.": "这条命令是在沙盒里运行的。",
+      "This computer": "这台电脑",
+      "This conversation grew too large, so the history before this point may be missing or incomplete.": "这个对话太长了，这里之前的记录可能丢失或不完整。",
+      "This conversation is also open in another app. Sending messages from both may cause conflicts.": "这个对话也在另一个应用里打开着，两边同时发消息可能会冲突。",
+      "This conversation is not on disk. Delete it to remove it from your sidebar.": "这个对话不在磁盘上。删除它可以从侧边栏移除。",
+      "This extension has no declared permissions requiring user input.": "这个扩展没有需要你填写的权限。",
+      "This is a CitC workspace (Fig share)": "这是一个 CitC 工作区（Fig 共享）",
+      "This link wants to open an app on your device.": "这个链接想在你的设备上打开一个应用。",
+      "This may take a few minutes": "可能需要几分钟",
+      "This notebook has no renderable cells.": "这个笔记本没有可渲染的单元格。",
+      "This page is blocked in the built-in browser by your organization's Context-Aware Access policy.": "你所在组织的情境感知访问策略在内置浏览器里屏蔽了这个页面。",
+      "This page is taking longer than expected to load, or it may be blocking embedded views (via X-Frame-Options or CSP).": "这个页面加载时间比预期长，或者它可能禁止被嵌入显示（X-Frame-Options 或 CSP）。",
+      "This page isn’t working": "这个页面无法正常运作",
+      "This plugin requires authentication before the agent can use its tools.": "这个插件需要先验证身份，Agent 才能使用它的工具。",
+      "This project uses Firebase. Do you want to download the Firebase skill?": "这个项目用到了 Firebase，要下载 Firebase 技能吗？",
+      "This project was created for": "这个项目是为它创建的：",
+      "This prompt is straightforward and does not need alternative comparisons.": "这个提示词很直接，不需要多个方案对比。",
+      "This request is not well-suited for parallel Best-of-N generation.": "这个请求不适合并行的多选一生成。",
+      "This side question isn't available in this conversation.": "这个旁支提问在这个对话里不可用。",
+      "This skill came from the marketplace, so you can add it again whenever you need it.": "这个技能来自插件市场，需要时随时可以再添加。",
+      "This will permanently delete": "这会永久删除",
+      "Thumbnails": "缩略图",
+      "Thursday": "星期四",
+      "Time": "时间",
+      "Time Zone": "时区",
+      "Timeout:": "超时：",
+      "Tip:": "提示：",
+      "Tip: Complex tasks get better results with multiple responses.": "提示：复杂任务生成多个回答效果更好。",
+      "Title:": "标题：",
+      "To switch accounts, sign out in the": "要切换账号，请先退出登录：",
+      "To use the agent, please login": "要使用 Agent，请先登录",
+      "Toggle": "切换",
+      "Toggle Between Light/Dark Themes": "切换浅色 / 深色主题",
+      "Toggle Environment Selector": "切换环境选择器",
+      "Toggle Google Cloud projects": "切换 Google Cloud 项目",
+      "Toggle Maximize Side Panel": "切换侧边面板最大化",
+      "Toggle Model Selector": "切换模型选择器",
+      "Toggle Project Selector": "切换项目选择器",
+      "Toggle Superpowers": "开关 Superpowers",
+      "Toggle Swarm": "开关 Swarm",
+      "Toggle Terminal Panel": "切换终端面板",
+      "Toggle Thumbnails": "切换缩略图",
+      "Toggle Virtual Machine": "切换虚拟机",
+      "Toggle Voice Recording": "开始 / 停止录音",
+      "Toggle Word Wrap": "切换自动换行",
+      "Toggle antigravity-custom-theme-plugin": "开关 antigravity-custom-theme-plugin",
+      "Toggle file diff": "切换文件差异",
+      "Toggle modern-web-guidance": "开关 modern-web-guidance",
+      "Toggle this on to allow creating new issues.": "打开后允许创建新的 Issue。",
+      "Toggle this on to allow creating new pull requests.": "打开后允许创建新的 Pull Request。",
+      "Toggle this on to enable read access on contents.": "打开后允许读取内容。",
+      "Too many environments running": "运行中的环境太多了",
+      "Too many requests, please try again in a bit!": "请求太多了，请稍后再试！",
+      "Too many surveys": "问卷太多了",
+      "Tool Output": "工具输出",
+      "Tool Permissions": "工具权限",
+      "Tool arguments": "工具参数",
+      "Trajectory Debug View": "轨迹调试视图",
+      "Trajectory ID:": "轨迹 ID：",
+      "Trajectory Stats": "轨迹统计",
+      "Tree": "树状",
+      "Triggered": "已触发",
+      "Trouble signing in? Enter authorization code": "登录遇到问题？输入授权码",
+      "True changes vs the parent workspace": "相对父工作区的真实改动",
+      "Try Again": "重试",
+      "Try out early-stage features before they ship. These may be changed or removed at any time. These features are experimental, and we make no guarantees about performance or functionality.": "抢先试用还没正式发布的功能。这些功能随时可能修改或移除，属于实验性质，不保证性能和可用性。",
+      "Tuesday": "星期二",
+      "Turbo mode": "Turbo 模式",
+      "Turn on a flag you don't have": "打开一个你没有的开关",
+      "Type a voice variant name, such as rev27.": "输入音色变体名称，例如 rev27。",
+      "Type absolute path or navigate folders...": "输入绝对路径或浏览文件夹…",
+      "Type to search file contents": "输入内容来搜索文件",
+      "Typing your corp password here may trigger a Password Alert reset.": "在这里输入公司密码可能会触发 Password Alert 重置。",
+      "UI Plugins": "界面插件",
+      "UI plugins": "界面插件",
+      "UI view does not exist.": "界面视图不存在。",
+      "Unable to load PDF:": "无法加载 PDF：",
+      "Unable to resolve audio source URL": "无法解析音频来源地址",
+      "Unauthenticated": "未验证身份",
+      "Unavailable": "不可用",
+      "Uncommitted": "未提交",
+      "Underline": "下划线",
+      "Undo to Here": "撤销到这里",
+      "Unidentified": "无法识别",
+      "Unimplemented": "未实现",
+      "United States": "美国",
+      "Unknown Environment": "未知环境",
+      "Unknown Notebook": "未知笔记本",
+      "Unknown Source": "未知来源",
+      "Unknown edit": "未知编辑",
+      "Unknown error": "未知错误",
+      "Unknown file edit": "未知的文件编辑",
+      "Unlock the power of agent swarms.": "释放 Agent 集群的力量。",
+      "Unpin This Conversation": "取消置顶这个对话",
+      "Unread": "未读",
+      "Unsandboxed commands": "不使用沙盒的命令",
+      "Unsent draft": "未发送的草稿",
+      "Unstage change": "取消暂存改动",
+      "Untracked": "未跟踪",
+      "Untracked (Unstaged)": "未跟踪（未暂存）",
+      "Untrusted sidecar": "不受信任的侧车",
+      "Up": "上",
+      "Update Available": "有可用更新",
+      "Updater": "更新程序",
+      "Upload Debug Bundle": "上传调试包",
+      "Upload Files": "上传文件",
+      "Uploaded files and connected resources are mounted in your cloud environment.": "上传的文件和连接的资源会挂载在你的云端环境里。",
+      "Uploaded project files and in-chat attachments are stored on Google servers and mounted into your cloud sandbox so your agent can read and work with them.": "上传的项目文件和对话附件保存在 Google 服务器上，并挂载到你的云端沙盒里，供 Agent 读取和处理。",
+      "Uploaded to Google Drive": "已上传到 Google Drive",
+      "Uploading to Google Drive…": "正在上传到 Google Drive…",
+      "Uploads": "上传",
+      "Uptime": "运行时长",
+      "Use": "使用",
+      "Use Advanced SSO Config": "使用高级 SSO 配置",
+      "Use Antigravity through your Gemini subscription.": "通过你的 Gemini 订阅使用 Antigravity。",
+      "Use Business Account": "使用企业账号",
+      "Use Default": "使用默认",
+      "Use Existing": "使用现有的",
+      "Use Global Settings": "使用全局设置",
+      "Use Google Cloud project instead": "改用 Google Cloud 项目",
+      "Use Regular Expression (.*)": "使用正则表达式（.*）",
+      "Use full Git clones for Best of N": "多选一时使用完整的 Git 克隆",
+      "Use full VCS clones for Best of N": "多选一时使用完整的版本库克隆",
+      "Use regular expression": "使用正则表达式",
+      "Use theme to be imported with settings": "使用随设置一起导入的主题",
+      "Use this if your admin gave you a WIF config. Paste it below to sign in.": "如果管理员给了你 WIF 配置，就用这个。粘贴到下面来登录。",
+      "Use when completing tasks, implementing major features, or before merging to verify work meets requirements": "在完成任务、实现重要功能或合并之前使用，用来确认工作符合要求",
+      "Use when creating new skills, editing existing skills, or verifying skills work before deployment": "在创建新技能、编辑现有技能或部署前验证技能时使用",
+      "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes": "遇到任何 bug、测试失败或异常行为时，在提出修复方案之前使用",
+      "Use when executing implementation plans with independent tasks in the current session": "在当前会话中执行包含独立任务的实施计划时使用",
+      "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies": "面对 2 个以上互不依赖、不需要共享状态的任务时使用",
+      "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work": "实现完成、测试全部通过，需要决定怎么合并这些工作时使用",
+      "Use when implementing any feature or bugfix, before writing implementation code": "在实现任何功能或修复 bug、写实现代码之前使用",
+      "Use when you have a spec or requirements for a multi-step task, before touching code": "手里有多步骤任务的需求或规格说明、还没开始写代码时使用",
+      "User": "用户",
+      "User Intent": "用户意图",
+      "User Type": "用户类型",
+      "User cancelled agent execution.": "用户取消了 Agent 执行。",
+      "User uploaded image": "用户上传的图片",
+      "VCS used when creating a new workspace, including workspaces generated based off your initial prompt.": "新建工作区时使用的版本控制系统，包括根据你的首条提示词自动创建的工作区。",
+      "VS Code Default": "VS Code 默认",
+      "VS Code Keyboard Shortcuts": "VS Code 键盘快捷键",
+      "Valid CEL": "有效的 CEL",
+      "Valid until": "有效期至",
+      "Validate": "验证",
+      "Validated with GitHub and stored in": "已通过 GitHub 验证并保存在",
+      "Validating setup script…": "正在验证初始化脚本…",
+      "Verification required": "需要验证",
+      "Verify": "验证",
+      "Verify that these licenses were provided by your administrator and that you trust the project ID before proceeding. Account activity and data may be logged by your organization.": "继续之前，请确认这些许可证是管理员提供的，并且你信任这个项目 ID。你的账号活动和数据可能会被组织记录。",
+      "Video attachment": "视频附件",
+      "View Debug": "查看调试信息",
+      "View Diff": "查看差异",
+      "View Logs": "查看日志",
+      "View MCP servers": "查看 MCP 服务器",
+      "View Page": "查看页面",
+      "View Usage": "查看用量",
+      "View archived in the sidebar (Customize Sidebar).": "在侧边栏里查看已归档的（自定义侧边栏）。",
+      "View comments": "查看评论",
+      "View could not be opened": "无法打开视图",
+      "View network request": "查看网络请求",
+      "View network requests": "查看网络请求",
+      "View or edit comment": "查看或编辑评论",
+      "View site information": "查看网站信息",
+      "Virtual File Viewer": "虚拟文件查看器",
+      "Visit": "访问",
+      "Visited URLs and autocomplete suggestions.": "访问过的网址和自动补全建议。",
+      "Voice Speed": "语速",
+      "Voice dictation unavailable": "语音听写不可用",
+      "Voice engine": "语音引擎",
+      "Voice engine address": "语音引擎地址",
+      "Voice recording is unavailable while the Chief of Staff mic is on": "总管麦克风开着时无法录音",
+      "Voice speed": "语速",
+      "Voices": "音色",
+      "WIF Config": "WIF 配置",
+      "Wait for": "等待",
+      "Waiting for the agents’ windows…": "正在等待 Agent 的窗口…",
+      "Waiting for tool permission approval — click Open in full conversation (↗) to approve": "正在等待工具权限批准，点「在完整对话中打开」（↗）来批准",
+      "Waiting for user input": "正在等待用户输入",
+      "Waiting for you to finish signing in…": "正在等你完成登录…",
+      "Warm and approachable": "温暖亲切",
+      "Warm and engaging": "温暖有感染力",
+      "Watermark": "水印",
+      "We recommend attaching logs. Attaching logs will help the Antigravity team act on and prioritize your feedback.": "建议附上日志，这能帮 Antigravity 团队处理你的反馈并排好优先级。",
+      "Web": "网页",
+      "Web (desktop)": "网页（桌面）",
+      "Web (desktop, PWA)": "网页（桌面，PWA）",
+      "Web (desktop, remote agents)": "网页（桌面，远程 Agent）",
+      "Web (desktop, remote agents, PWA)": "网页（桌面，远程 Agent，PWA）",
+      "Web (desktop, remote control)": "网页（桌面，远程控制）",
+      "Web (desktop, remote control, PWA)": "网页（桌面，远程控制，PWA）",
+      "Web (mobile)": "网页（移动端）",
+      "Web (mobile, PWA)": "网页（移动端，PWA）",
+      "Web (mobile, remote agents)": "网页（移动端，远程 Agent）",
+      "Web (mobile, remote agents, PWA)": "网页（移动端，远程 Agent，PWA）",
+      "Web (mobile, remote control)": "网页（移动端，远程控制）",
+      "Web (mobile, remote control, PWA)": "网页（移动端，远程控制，PWA）",
+      "Web Preview": "网页预览",
+      "Web search prioritized results from": "网页搜索优先采用这些来源的结果：",
+      "Website": "网站",
+      "Wednesday": "星期三",
+      "Weekdays": "工作日",
+      "Weekly": "每周",
+      "Weekly Limit Remaining": "每周限额剩余",
+      "What counts as a document": "哪些算文档",
+      "What functionality you expect your account tier to have available that is missing": "你的账号等级应该有、但现在缺少的功能",
+      "What is missing in your workflow": "你的工作流里缺了什么",
+      "What quota or feature is being incorrectly limited": "哪个配额或功能被错误地限制了",
+      "What should it do?": "它要做什么？",
+      "What should the agent do on each run?": "每次运行时 Agent 要做什么？",
+      "What should the agent do on each run? For example: summarize new bugs assigned to me and anything that changed overnight.": "每次运行时 Agent 要做什么？例如：汇总分配给我的新 bug，以及夜里有变化的内容。",
+      "What should this coordinator accomplish?": "这个协调者要完成什么？",
+      "What you would like to see to address this gap in your workflow": "你希望怎样弥补工作流里的这个缺口",
+      "What's in this bundle": "这个套装里有什么",
+      "Whatever the voice-engine-addr flag serves you.": "voice-engine-addr 开关提供的那个。",
+      "When": "时间",
+      "When Turbo mode is on, the agent will automatically capture screenshots in the Browser without explicit user input. You can toggle this setting in Antigravity's settings.": "开启 Turbo 模式后，Agent 会在浏览器里自动截图，不需要你确认。可以在 Antigravity 的设置里关掉。",
+      "When enabled, the agent will include default customizations, including default skills.": "开启后，Agent 会带上默认自定义项，包括默认技能。",
+      "When enabled, the values below replace the auto-detected OS, host, and user type used for feature gating.": "开启后，下面的值会替换自动检测到的操作系统、宿主和用户类型，用于功能开关判断。",
+      "When it runs": "运行时间",
+      "When should it run?": "什么时候运行？",
+      "When something happens": "发生某件事时",
+      "When toggled on, Antigravity collects usage data to help Google enhance performance and features.": "开启后，Antigravity 会收集使用数据，帮助 Google 改进性能和功能。",
+      "Where": "位置",
+      "Where it runs": "运行位置",
+      "Where should it run?": "在哪里运行？",
+      "Whether it never connects or is intermittent/flaky": "是完全连不上，还是时断时续",
+      "Which workspace the New Conversation button and keyboard shortcut start you in.": "「新建对话」按钮和快捷键会在哪个工作区里开始。",
+      "Why are you opting out of auto-triggered Best-of-N?": "你为什么不想要自动触发的多选一？",
+      "Why did you choose this response?": "你为什么选这个回答？",
+      "Windows Subsystem for Linux": "适用于 Linux 的 Windows 子系统",
+      "Work in a CitC workspace.": "在 CitC 工作区中工作。",
+      "Work in a Cog workspace.": "在 Cog 工作区中工作。",
+      "Work in a New Worktree": "在新工作树中工作",
+      "Work in an ABFS workspace.": "在 ABFS 工作区中工作。",
+      "Worker execution error": "工作进程执行出错",
+      "Workflow files": "工作流文件",
+      "Workflow refs": "工作流引用",
+      "Workflow runs": "工作流运行记录",
+      "Workflows are changing on October 19th—stay tuned for updates. You can use the agent to migrate your workflows.": "工作流将在 10 月 19 日调整，请留意更新。可以让 Agent 帮你迁移工作流。",
+      "Working Directory:": "工作目录：",
+      "Workspace File Explorer": "工作区文件资源管理器",
+      "Workspace URI Switcher": "工作区地址切换器",
+      "Workspace URI not found": "找不到工作区地址",
+      "Workspace URI query parameter": "工作区地址查询参数",
+      "Workspace URI to switch to": "要切换到的工作区地址",
+      "Workspace folder suggestions": "工作区文件夹建议",
+      "Workspace mismatch actions": "工作区不匹配时的操作",
+      "Workspace setup warning": "工作区设置警告",
+      "Worktree": "工作树",
+      "Wrench": "扳手",
+      "Write": "写入",
+      "Write a comment...": "写一条评论…",
+      "Write and edit docs": "撰写和编辑文档",
+      "Write files": "写入文件",
+      "Yellow": "黄色",
+      "You are in control": "一切由你掌控",
+      "You can prompt the model to try again or start a new conversation if the error persists.": "可以让模型重试；如果一直出错，就开一个新对话。",
+      "You can upgrade to a Google AI Ultra plan to receive higher rate limits.": "升级到 Google AI Ultra 套餐可以获得更高的速率限制。",
+      "You should not enter any sensitive information on this site (for example, passwords or credit cards), because it could be stolen by attackers.": "不要在这个网站上输入任何敏感信息（比如密码或信用卡），可能会被攻击者窃取。",
+      "You're viewing a blank page": "这是一个空白页面",
+      "You're viewing a local or shared file": "你正在查看本地或共享的文件",
+      "Your Antigravity use will be associated with provided project.": "你使用 Antigravity 的记录会关联到所提供的项目。",
+      "Your Antigravity use will be associated with provided project. Make sure you trust the project ID before proceeding. Account activity and data may be logged by your organization.": "你使用 Antigravity 的记录会关联到所提供的项目。继续之前请确认你信任这个项目 ID。你的账号活动和数据可能会被组织记录。",
+      "Your Plan:": "当前套餐：",
+      "Your administrator has disabled MCP servers for this workspace.": "管理员已为这个工作区停用 MCP 服务器。",
+      "Your agent’s ability to execute commands is also controlled by enterprise security policies.": "Agent 执行命令的能力也受企业安全策略控制。",
+      "Your changes were not saved. Please try again.": "你的改动没有保存，请重试。",
+      "Your connection is not private": "你的连接不是私密连接",
+      "Your connection to this site is not fully secure": "你与这个网站的连接不完全安全",
+      "Your connection to this site is not secure": "你与这个网站的连接不安全",
+      "Your information (for example, passwords or credit card numbers) is private when it is sent to this site.": "你发送到这个网站的信息（比如密码或信用卡号）是保密的。",
+      "Your session has expired. Please log back in to continue.": "你的会话已过期，请重新登录后继续。",
+      "Zip attachment": "压缩包附件",
+      "Zoom Level": "缩放级别",
+      "Zoom in (+)": "放大（+）",
+      "Zoom out (-)": "缩小（-）",
+      "copy link": "复制链接",
+      "cumulative total for the conversation up to this point": "到目前为止这个对话的累计总量",
+      "image for artifact level comment": "产出物评论的图片",
+      "image for comment": "评论的图片",
+      "in a terminal": "在终端中",
+      "learn more": "了解更多",
+      "necessary rights": "必要的权利",
+      "not installed": "未安装",
+      "to ask for content changes for legal reasons.": "，提出因法律原因要求修改内容的请求。",
+      "to exit": "退出",
+      "tokens (": "token（",
+      "tokens)": "token）",
+      "troubleshooting guide": "故障排查指南",
+      "unknown error": "未知错误",
+      "view full search results": "查看完整搜索结果",
+      "When toggled on, Antigravity will use your AI credits to fulfill model requests once you're out of model quota. Antigravity will always use your model quota first before using AI credits.": "开启后，模型配额用完时 Antigravity 会用你的 AI 额度来处理模型请求。Antigravity 总是先用模型配额，再用 AI 额度。",
+      "When toggled on, Antigravity will use your AI credits to fulfill model requests once you’re out of model quota. Antigravity will always use your model quota first before using AI credits.": "开启后，模型配额用完时 Antigravity 会用你的 AI 额度来处理模型请求。Antigravity 总是先用模型配额，再用 AI 额度。",
+      "Strong": "强",
+      "Notice": "提示",
+      "Plan": "套餐",
+      "Hide breakdown": "收起明细",
+      "Resets in <1m": "不到 1 分钟后重置",
+      "Auth and Billing": "登录与账单",
+      "Conversation": "对话",
+      "Layout": "布局",
+      "Appearance": "外观",
+      "Terminal": "终端",
+      "Editing": "编辑",
+      "Voice": "语音",
+      "Agent": "Agent",
+      "Upgrade": "升级",
+      "General Feedback": "一般反馈",
+      "Copied to clipboard": "已复制到剪贴板",
+      "Maximize Width": "最大宽度",
+      "Minimize Width": "最小宽度",
+      "Reveal in Finder": "在访达中显示",
+      "Show in File Explorer": "在文件资源管理器中显示",
+      "Show in File Manager": "在文件管理器中显示",
+      "Searching older messages…": "正在搜索更早消息…",
+      "Couldn't load older messages · Retry": "无法加载更早消息 · 重试",
+      "Couldn't load older messages — retry": "无法加载更早消息，点此重试",
+      "Agent settings and permissions for conversations outside of projects.": "项目以外的对话的 Agent 设置和权限。",
+      "Managed by application menu": "由应用菜单管理",
+      "Zoom In": "放大",
+      "Zoom Out": "缩小",
+      "Reset Zoom": "重置缩放",
+      "Focus Input": "聚焦输入框",
+      "Ultra": "Ultra",
+      "Pro": "Pro"
+    };
+    const ZH_U = { s: "秒", sec: "秒", secs: "秒", second: "秒", seconds: "秒", m: "分钟", min: "分钟", mins: "分钟", minute: "分钟", minutes: "分钟", h: "小时", hr: "小时", hrs: "小时", hour: "小时", hours: "小时", d: "天", day: "天", days: "天", w: "周", wk: "周", wks: "周", week: "周", weeks: "周", mo: "个月", month: "个月", months: "个月", y: "年", yr: "年", yrs: "年", year: "年", years: "年" };
+    // "6d 22h" / "3 hours" / "a minute" -> "6 天 22 小时" / "3 小时" / "1 分钟"；有对不上的单位就不翻
+    function zhDur(s) {
+      let bad = false, hit = false;
+      const t = String(s).replace(/\b(?:an?)\s+(?=[a-z])/gi, "1 ").replace(/(\d+(?:\.\d+)?)\s*([a-z]+)(?![a-z])/gi, (m0, n, u) => { const z = ZH_U[u.toLowerCase()]; if (!z) { bad = true; return m0; } hit = true; return n + " " + z + " "; })
+        .replace(/\s*,\s*|\s+and\s+/gi, " ").replace(/\s+/g, " ").trim();
+      if (bad || !hit || /[a-z]/i.test(t)) return null;
+      return t;
+    }
+    const DUR = String.raw`(?:(?:\d+(?:\.\d+)?|an?)\s*[a-z]+(?:,?\s+(?:and\s+)?)?)+`;
+    const ZH_RE = [
+      [/^(?:just now|now)$/i, () => "刚刚"],
+      [new RegExp("^(" + DUR + ")\\s+ago$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "前" : null; }],
+      [new RegExp("^resets?\\s+in\\s+(" + DUR + ")$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "后重置" : null; }],
+      [new RegExp("^in\\s+(" + DUR + ")$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "后" : null; }],
+      [/^Turn (\d+) of (\d+)$/, (m) => "第 " + m[1] + " 轮，共 " + m[2] + " 轮"],
+      // v0.10.5 快捷键页
+      [/^Shortcut (.+?) for (.+)$/, (m) => "快捷键 " + m[1] + "：" + zhIn(m[2])],
+      [/^Remove shortcut (.+?) for (.+)$/, (m) => "删除「" + zhIn(m[2]) + "」的快捷键 " + m[1]],
+      [/^Add shortcut for (.+)$/, (m) => "为「" + zhIn(m[1]) + "」添加快捷键"],
+      [/^Toggle (.+)$/, (m) => { const z = zhIn(m[1]); return (z !== m[1] ? "切换" : "开关 ") + z; }],
+      // 用量 / 配额
+      [/^Show (\d+) breakdowns?$/, (m) => "显示 " + m[1] + " 项明细"],
+      [/^(.+): ([\d,.]+[KMG]?) tokens?$/, (m) => zhIn(m[1]) + "：" + m[2] + " token"],
+      [/^You have used some of your (weekly|five hour|5 hour|daily) limit, it will fully refresh in (.+?)\.?$/i, (m) => { const d = zhDur(m[2]); return d ? ({ weekly: "每周", daily: "每日" }[m[1].toLowerCase()] || "5 小时") + "限额已用掉一部分，" + d + "后完全恢复。" : null; }],
+      [/^Individual quota reached\. Please upgrade your subscription to increase your limits\. Resets in (.+?)\.?$/, (m) => { const d = zhDur(m[1]); return "已达到个人配额。请升级订阅来提高限额。" + (d ? d + "后重置。" : ""); }],
+      [/^(.*?)\s*Leaving on (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* (\d{1,2})\.?$/, (m) => { const mo = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ").indexOf(m[2]) + 1; const pre = m[1] ? zhIn(m[1]) : ""; return (pre && pre !== m[1] ? pre : (m[1] ? m[1] + " " : "")) + mo + " 月 " + m[3] + " 日下线。"; }],
+      [/^Send feedback as (.+)$/, (m) => "以 " + m[1] + " 的身份发送反馈"],
+      [/^(\d+) files? changed$/, (m) => m[1] + " 个文件有改动"],
+      [/^(.+), showing (\d+) of (\d+)$/, (m) => zhIn(m[1]).replace(/[。.…]+$/, "") + "（已显示 " + m[2] + " / " + m[3] + " 条）"],
+      [/^Load older messages, showing (\d+) of (\d+)$/, (m) => "加载更早消息（已显示 " + m[1] + " / " + m[2] + " 条）"],
+      [/^(\d+)\/(\d+) steps?\. Show plan$/, (m) => m[1] + "/" + m[2] + " 步 · 查看计划"],
+      [/^(\d+)\/(\d+) steps?$/, (m) => m[1] + "/" + m[2] + " 步"],
+      [/^Select model, current: (.+)$/, (m) => "选择模型，当前：" + zhIn(m[1])],
+      [/^Select project, current: (.+)$/, (m) => "选择项目，当前：" + zhIn(m[1])],
+      [/^Agent permissions preset selector, current: (.+)$/, (m) => "Agent 权限预设，当前：" + zhIn(m[1])],
+      [/^Conversation: (.+)$/, (m) => "对话：" + m[1]],
+      [/^Message from (.+)$/, (m) => "来自 " + m[1] + " 的消息"],
+      [/^Your Plan: (.+)$/, (m) => "当前套餐：" + m[1]],
+      [/^((?:Gemini|Claude|GPT|Qwen|Llama|DeepSeek)\b.*?) (Extra High|XHigh|High|Medium|Low)$/, (m) => m[1] + " " + ({ "Extra High": "超高", XHigh: "超高", High: "高", Medium: "中", Low: "低" })[m[2]]],
+      [/^Worked for (.+)$/, (m) => "已工作 " + m[1]],
+      [/^Working for (.+)$/, (m) => "已工作 " + m[1]],
+      [/^Thought for (.+)$/, (m) => "已思考 " + m[1]],
+      [/^Thinking for (.+)$/, (m) => "已思考 " + m[1]],
+      [/^(\d+(?:\.\d+)?%)\s+(?:remaining|left)$/i, (m) => m[1] + " 剩余"],
+      [/^(\d+(?:\.\d+)?%)\s+used$/i, (m) => "已用 " + m[1]],
+      [/^(\d+) requests?$/i, (m) => m[1] + " 次请求"],
+      [/^(\d+) (files?|changes?|items?|results?|messages?|conversations?|projects?|skills?|rules?|plugins?|tasks?)$/i, (m) => m[1] + " 个" + ({ file: "文件", change: "改动", item: "项目", result: "结果", message: "消息", conversation: "对话", project: "项目", skill: "技能", rule: "规则", plugin: "插件", task: "任务" })[m[2].toLowerCase().replace(/s$/, "")]],
+      [/^(\d+(?:\.\d+)?\s*(?:s|m|h|d|w|mo|y))(?:\s+\d+(?:\.\d+)?\s*(?:s|m|h|d|w|mo|y))*$/, (m) => zhDur(m[0])]
+    ];
+    const ZH_EXCL = 'pre, code, kbd, samp, textarea, input, select[multiple], script, style, noscript, title, svg, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], .xterm, .monaco-editor, .cm-editor, .agy-user-bubble, [class*="markdown"], [class*="prose"], [data-agywe-noi18n], #antigravity-catgirl-dock';
+    const ZH_ATTRS = ["placeholder", "aria-label", "title", "data-placeholder", "aria-placeholder", "data-tooltip"];
+    const ZH_ATTR_SEL = ZH_ATTRS.map((a) => "[" + a + "]").join(",");
+    const zh = { on: false, map: null, extraSig: null, txt: new WeakMap(), att: new WeakMap(), miss: new Map(), n: 0, obs: null, q: [], raf: 0 };   // q: [节点, 0 整棵 | 1 只看这段文字 | 2 只看属性]
+    const zhWanted = () => !(cfg && cfg.zh === false);
+    function zhBuild() {
+      const extra = cfg && typeof cfg.zhExtra === "string" ? cfg.zhExtra : "";
+      if (zh.map && zh.extraSig === extra) return;
+      const m = new Map(Object.entries(ZH));
+      for (const line of extra.split(/\r?\n/)) {
+        const i = line.search(/\s*(?:=>|=|\t)\s*/);
+        if (i <= 0) continue;
+        const k = line.slice(0, i).trim(), v = line.slice(i).replace(/^\s*(?:=>|=|\t)\s*/, "").trim();
+        if (k && v) m.set(k, v);
+      }
+      zh.map = m; zh.extraSig = extra;
+    }
+    const CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+    // 句子里嵌着的一小段（比如「当前：No Project」）：词表里有就换，没有原样保留
+    const zhIn = (x) => { const t = String(x).trim(); const z = zh.map && zh.map.get(t); if (z) return z; for (const [re, fn] of ZH_RE) { if (fn === undefined) continue; const m = re.exec(t); if (m && !/current:/.test(re.source)) { const r = fn(m); if (r) return r; } } return t; };
+    // 不记进「没翻到」的：快捷键、token 数、路径、纯数字单位这种
+    const ZH_NOMISS = /^(?:(?:Ctrl|Alt|Shift|Cmd|Meta|Win)\+|~[\\/])|\btok\b|tok\/s$|^[\d.,\s%KMG\/-]+$/;
+    function zhT(s) {
+      const t = s.trim();
+      if (!t || t.length > 120 || CJK.test(t) || !/[a-z]/i.test(t)) return null;
+      let z = zh.map.get(t);
+      if (z === undefined) {
+        z = null;
+        for (const [re, fn] of ZH_RE) { const m = re.exec(t); if (m) { z = fn(m); if (z) break; } }
+      }
+      if (!z) {
+        if (t.length <= 120 && zh.miss.size < 600 && !zh.miss.has(t) && !/^[\w.\-/\\:@#]+$/.test(t) && !ZH_NOMISS.test(t)) zh.miss.set(t, 1);
+        return null;
+      }
+      if (z === t) return null;
+      const lead = /^\s*/.exec(s)[0], trail = /\s*$/.exec(s)[0];
+      return lead + z + trail;
+    }
+    function zhSkip(el) {
+      if (!el) return true;
+      try { return !!el.closest(ZH_EXCL) || isOurs(el); } catch { return true; }
+    }
+    function zhText(n, checked) {
+      const v = n.nodeValue;
+      if (!v || v.length > 160) return;
+      const prev = zh.txt.get(n);
+      if (prev && prev[1] === v) return;   // 是我们换上去的
+      if (!checked && zhSkip(n.parentElement)) return;
+      const z = zhT(v);
+      if (z == null) return;
+      zh.txt.set(n, [v, z]); zh.n++;
+      n.nodeValue = z;
+    }
+    function zhAttrs(el, checked) {
+      if (!el.hasAttribute) return;
+      let skip = null;
+      for (const a of ZH_ATTRS) {
+        const v = el.getAttribute(a);
+        if (!v) continue;
+        const o = zh.att.get(el);
+        if (o && o[a] && o[a][1] === v) continue;
+        if (skip === null) { try { skip = !checked && (isOurs(el) || !!(el.closest && el.closest("[data-agywe-noi18n], #antigravity-catgirl-dock, .xterm, .monaco-editor, .cm-editor"))); } catch { skip = true; } }
+        if (skip) return;
+        const z = zhT(v);
+        if (z == null) continue;
+        const rec = o || {};
+        rec[a] = [v, z]; zh.att.set(el, rec); zh.n++;
+        el.setAttribute(a, z);
+      }
+    }
+    const ZH_ATTR_EXCL = "[data-agywe-noi18n], #antigravity-catgirl-dock, .xterm, .monaco-editor, .cm-editor";
+    // 遍历一棵子树：碰到不该翻的容器（代码块、编辑器、对话正文…）整棵跳过
+    function zhWalk(root, budget) {
+      if (!root) return budget;
+      if (root.nodeType === 3) { zhText(root, false); return budget - 1; }
+      if (root.nodeType !== 1 && root.nodeType !== 9) return budget;
+      if (root.nodeType === 1) {
+        if (zhSkip(root)) { if (!isOurs(root)) { try { if (!root.closest(ZH_ATTR_EXCL)) zhAttrs(root, true); } catch { } } return budget; }
+        zhAttrs(root, true);
+      }
+      const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(n) {
+          if (n.nodeType === 3) return NodeFilter.FILTER_ACCEPT;
+          const id = n.id;
+          if (id && typeof id === "string" && id.startsWith("agywe-")) return NodeFilter.FILTER_REJECT;
+          try { if (n.matches(ZH_EXCL)) { if (!n.matches(ZH_ATTR_EXCL)) zhAttrs(n, true); return NodeFilter.FILTER_REJECT; } } catch { return NodeFilter.FILTER_REJECT; }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        if (n.nodeType === 3) zhText(n, true); else zhAttrs(n, true);
+        if (--budget <= 0) { zh.q.push([root, 0]); return budget; }   // 太多了，下一帧从头再过一遍（已经换过的会直接跳过）
+      }
+      return budget;
+    }
+    function zhFlush() {
+      zh.raf = 0;
+      if (!zh.on) { zh.q.length = 0; return; }
+      let budget = 8000;
+      while (zh.q.length && budget > 0) {
+        const [n, mode] = zh.q.shift();
+        if (n.isConnected === false) continue;
+        if (mode === 1) { zhText(n, false); budget--; }
+        else if (mode === 2) { zhAttrs(n, false); budget--; }
+        else budget = zhWalk(n, budget);
+      }
+      if (zh.q.length && !zh.raf) zh.raf = requestAnimationFrame(zhFlush);
+    }
+    function zhOnMut(recs) {
+      if (!zh.on) return;
+      for (const r of recs) {
+        if (r.type === "characterData") { if (r.target.nodeValue && r.target.nodeValue.length <= 160) zh.q.push([r.target, 1]); }
+        else if (r.type === "attributes") zh.q.push([r.target, 2]);
+        else for (const n of r.addedNodes) if (n.nodeType === 1 || n.nodeType === 3) zh.q.push([n, n.nodeType === 3 ? 1 : 0]);
+      }
+      if (zh.q.length > 3000) zh.q = [[document.body || document.documentElement, 0]];
+      // 在这一帧画出来之前就换掉，不会先闪一下英文
+      zhFlush();
+    }
+    function zhRestore() {
+      try {
+        const w = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) { const p = zh.txt.get(n); if (p && n.nodeValue === p[1]) n.nodeValue = p[0]; }
+        for (const el of document.querySelectorAll(ZH_ATTR_SEL)) { const o = zh.att.get(el); if (!o) continue; for (const a of Object.keys(o)) if (el.getAttribute(a) === o[a][1]) el.setAttribute(a, o[a][0]); }
+      } catch { }
+      zh.txt = new WeakMap(); zh.att = new WeakMap();
+    }
+    function zhApply() {
+      try {
+        const want = zhWanted();
+        if (want) {
+          const sig = zh.extraSig;
+          zhBuild();
+          if (!zh.on || sig !== zh.extraSig) {
+            zh.on = true;
+            if (!zh.obs) {
+              zh.obs = new MutationObserver(zhOnMut);
+              zh.obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ZH_ATTRS });
+            }
+            zh.q.push([document.body || document.documentElement, 0]);
+            zhFlush();
+          }
+        } else if (zh.on) {
+          zh.on = false;
+          if (zh.obs) { try { zh.obs.disconnect(); } catch { } zh.obs = null; }
+          zhRestore();
+        }
+      } catch (e) { lastErr = "zh: " + String(e && e.message || e); }
+    }
+    function zhReport() { return { on: zh.on, replaced: zh.n, missN: zh.miss.size, miss: [...zh.miss.keys()].slice(-300) }; }
 
     function start() {
       ensureFrame();
+      zhApply();
       try {
         new MutationObserver((recs) => {
           if (av.root && recs.every((r) => av.root.contains(r.target))) return;   // 自己的头像层变化不算
-          if (!frame || !frame.isConnected) ensureFrame(); if (pet && !pet.root.isConnected) ensurePet(); scheduleScan(); scheduleAvatars();
+          if (!frame || !frame.isConnected) ensureFrame(); if (pet && !pet.root.isConnected) ensurePet();
+          // v0.10.2：只有新加了元素 / class 变了才需要看毛玻璃；流式输出时大量的纯文字变化直接跳过
+          let any = false;
+          const glassOn = ready && cfg && cfg.enabled && cfg.glass && !hideAll;
+          for (const r of recs) {
+            if (r.type === "attributes") { if (r.attributeName !== "data-browser-hole") { any = true; if (glassOn) queueFresh(r.target); } else any = true; }
+            else for (const n of r.addedNodes) if (n.nodeType === 1) { any = true; if (glassOn) queueFresh(n); }
+          }
+          if (any) scheduleScan();
+          scheduleAvatars();
         })
-          .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-browser-hole", "class"] });
+          .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-browser-hole", "class", "aria-pressed", "aria-expanded", "aria-selected", "aria-checked", "data-state", "data-active", "data-selected"] });
       } catch { }
       holeTimer = setInterval(() => { if (document.querySelector(HOLE_SEL) || holeHosts.size) updateHoles(); }, 250);
       setInterval(() => sendContext(false), 600);
       let lastPath = location.pathname, reportT = 0;
       setInterval(() => {
-        if (ready && cfg && cfg.enabled && cfg.glass) { scanGlass(); }
+        // v0.10.2：页面一有变化就会补扫，这里只是兜底（悬停颜色恢复之类），8 秒内扫过就跳过
+        if (ready && cfg && cfg.enabled && cfg.glass && Date.now() - lastScan > 8000) scheduleScan();
         try { jumpRefresh(); renderCal(false); renderCd(); } catch { }
+        tbSync();
         updateTheme(false);
         scheduleAvatars();
         // 换了页面（比如打开某个对话）后再记一次毛玻璃报告，方便排查
-        if (location.pathname !== lastPath) { lastPath = location.pathname; clearTimeout(reportT); reportT = setTimeout(() => { try { diag("glass-report", { glass: glassReport() }); } catch { } }, 4000); }
+        if (location.pathname !== lastPath) { lastPath = location.pathname; clearTimeout(reportT); reportT = setTimeout(() => { try { diag("glass-report", { glass: glassReport(), glassPerf: perfSummary() }); } catch { } }, 4000); }
       }, 3000);
       // cfg 到来前也先把挂件放出来，保证总有入口
       setTimeout(() => { if (!pet && (!cfg || cfg.showButton !== false)) ensurePet(); }, 1500);

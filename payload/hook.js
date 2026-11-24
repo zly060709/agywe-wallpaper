@@ -56,6 +56,24 @@ try {
 diagWrite(`===== agywe v${AGYWE_VERSION} hook loaded, electron ${process.versions.electron}, pid ${process.pid}`);
 
 // ---------------------------------------------------------------------------
+// v0.10.7 本机调试端口：猫猫桌宠这类插件要靠它把界面挂进来（它们读 %APPDATA%\Antigravity\DevToolsActivePort）。
+// 以前是旧主题补丁往快捷方式里加 --remote-debugging-port=0，换个图标打开、或者 Antigravity 自动更新后就没了。
+// 现在在这里统一打开：只监听 127.0.0.1，端口随机。必须在 app ready 之前设，main.js 第一行加载这里，正好来得及。
+// 设置里「外观」→「允许其他插件挂进界面」可以关。
+// ---------------------------------------------------------------------------
+try {
+  let want = true;
+  try {
+    const f = path.join(app.getPath("userData"), "agywe", "config.json");
+    const c = JSON.parse(fs.readFileSync(f, "utf8"));
+    if (c && c.cdpForPlugins === false) want = false;
+  } catch { }
+  if (app.commandLine.hasSwitch("remote-debugging-port")) diagWrite("[cdp] 启动参数里已经有 --remote-debugging-port，不用再加");
+  else if (want) { app.commandLine.appendSwitch("remote-debugging-port", "0"); diagWrite("[cdp] 已打开本机调试端口（给猫猫桌宠等插件用）"); }
+  else diagWrite("[cdp] 设置里关掉了「允许其他插件挂进界面」，不打开调试端口");
+} catch (e) { diagWrite("[cdp] 打开调试端口失败：" + (e && e.message || e)); }
+
+// ---------------------------------------------------------------------------
 // 配置
 // ---------------------------------------------------------------------------
 const DEFAULTS = {
@@ -82,7 +100,19 @@ const DEFAULTS = {
   blur: 18,
   dim: 0.25,
   textShadow: true,
-  transparentTitleBar: false,
+  transparentTitleBar: false,   // 旧开关（v0.10.1 及以前），读到 true 会换成 titleBarMode: "clear"
+  titleBarMode: "off",          // v0.10.2 窗口右上角按钮那一条：off 不改 | match 跟随壁纸颜色 | clear 透明
+  tbClear103: false,            // v0.10.3：原来选「跟随壁纸颜色」的，升级时换成「透明」一次（只换这一次）
+  mig105: false,                // v0.10.5：弹窗默认不透明度从 0.8 提到 0.86（只改没动过的）
+  zh: true,                     // v0.10.3 界面汉化（插件内置）
+  cdpForPlugins: true,          // v0.10.7 打开本机调试端口，让猫猫桌宠这类插件能挂进界面（改了要重启 Antigravity）
+  dialogOpacity: 0.55,          // v0.10.4 弹窗（设置页这类）的不透明度
+  dialogBlur: 16,               // v0.10.6 弹窗的模糊（px）
+  floatOpacity: 0.55,           // v0.10.6 浮层（模型选择和子菜单、下拉菜单、右键菜单、提示气泡）的不透明度
+  floatBlur: 16,                // v0.10.6 浮层的模糊（px）
+  mig106: false,                // v0.10.6：弹窗不透明度没手动改过（0.8 / 0.86）的换成 0.55
+  composerRing: 0.12,           // v0.10.4 输入框外圈细线的不透明度
+  zhExtra: "",                  // v0.10.3 补充翻译，每行「英文 = 中文」
   showButton: true,
   agentFx: "glow",              // none | glow | brighten
   glassBorder: true,
@@ -202,7 +232,7 @@ const DEFAULTS = {
 };
 
 const LOOK_KEYS = ["themeFollow", "themeStrength", "themeAccent", "miniPlayer", "miniHideIdle", "typeFx", "typeShake", "typeCombo", "sfx", "petIdle", "petWheel", "agentMood", "moodText", "focusMode", "focusStrength", "focusDelay", "avatarsOn", "avatarUserText", "avatarSize", "avatarShape", "glass", "panelOpacity", "bubbleOpacity", "contentOpacity", "transition", "transitionSec", "parallax", "blur", "dim", "dimMode", "textShadow", "textHalo", "haloColor", "glassBorder", "glassTintOn", "glassTint",
-  "glassForce", "glassExclude", "font", "fit", "agentFx", "clickFx", "trailFx", "fxColor", "fxRainbow", "transparentTitleBar", "showButton",
+  "glassForce", "glassExclude", "font", "fit", "agentFx", "clickFx", "trailFx", "fxColor", "fxRainbow", "transparentTitleBar", "titleBarMode", "showButton", "zh", "zhExtra", "cdpForPlugins", "dialogOpacity", "dialogBlur", "floatOpacity", "floatBlur", "composerRing",
   "autoContrast", "contrastTarget", "agentTimer", "flashOnDone", "clock", "typeFxCode", "wallFx", "petPat", "doneConfetti", "jumpBtns", "charCount"];
 
 let configPath = null;
@@ -213,12 +243,68 @@ let onBattery = false;
 
 function cfgDir() { return path.join(app.getPath("userData"), "agywe"); }
 
+// ---------------------------------------------------------------------------
+// v0.10.1 配置瘦身：64 KB 以上的内嵌图片（url:data:...）存成 agywe\assets\ 里的文件，配置里只记路径
+//   之前每拖一下滑块都要把几百 KB 的 base64 重新写一遍 config.json
+// ---------------------------------------------------------------------------
+const SPILL_MIN = 64 * 1024;
+const DATA_EXT = { "image/png": ".png", "image/apng": ".png", "image/gif": ".gif", "image/webp": ".webp", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
+function assetsDir() { return path.join(cfgDir(), "assets"); }
+function spillDataUrl(v) {
+  if (typeof v !== "string" || v.length < SPILL_MIN || !v.startsWith("url:data:")) return v;
+  const m = /^url:data:([\w.+-]+\/[\w.+-]+)((?:;[^,;]*)*),/.exec(v.slice(0, 300));
+  if (!m) return v;
+  const ext = DATA_EXT[m[1].toLowerCase()];
+  if (!ext) return v;
+  let buf;
+  try {
+    const body = v.slice(m[0].length);
+    buf = /;base64/i.test(m[2]) ? Buffer.from(body, "base64") : Buffer.from(decodeURIComponent(body), "utf8");
+  } catch { return v; }
+  if (!buf || !buf.length) return v;
+  const file = path.join(assetsDir(), crypto.createHash("sha1").update(buf).digest("hex").slice(0, 24) + ext);
+  try {
+    fs.mkdirSync(assetsDir(), { recursive: true });
+    if (!fs.existsSync(file) || fs.statSync(file).size !== buf.length) { fs.writeFileSync(file + ".tmp", buf); fs.renameSync(file + ".tmp", file); }
+  } catch (e) { warn("spill image failed", e); return v; }
+  return file;
+}
+function spillConfig(c) {
+  if (!c || typeof c !== "object") return 0;
+  let n = 0;
+  const sp = (v) => { const r = spillDataUrl(v); if (r !== v) n++; return r; };
+  if (c.pet && typeof c.pet === "object") { const r = sp(c.pet.image); if (r !== c.pet.image) c.pet = { ...c.pet, image: r }; }
+  for (const k of ["avatarUser", "avatarAgent"]) { const r = sp(c[k]); if (r !== c[k]) c[k] = r; }
+  if (Array.isArray(c.outfits)) c.outfits = c.outfits.map((o) => { if (!o || typeof o !== "object") return o; const r = sp(o.image); return r !== o.image ? { ...o, image: r } : o; });
+  return n;
+}
+
 function loadConfig() {
   if (config) return config;
   configPath = path.join(cfgDir(), "config.json");
   let saved = {};
   try { saved = JSON.parse(fs.readFileSync(configPath, "utf8")); } catch { }
   config = mergeConfig(DEFAULTS, saved);
+  if (saved.transparentTitleBar === true && !saved.titleBarMode) config.titleBarMode = "clear";
+  // v0.10.3：「跟随壁纸颜色」只能填一块纯色，壁纸有图案时看得出是个色块；透明之前一直没生效（颜色写法 Electron 不认），现在修好了，换过去一次
+  if (!saved.mig106) {
+    if (saved.dialogOpacity === undefined || saved.dialogOpacity === 0.8 || saved.dialogOpacity === 0.86) config.dialogOpacity = 0.55;
+    config.mig105 = true; config.mig106 = true;
+    try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); } catch (e) { warn("config migrate failed", e); }
+  }
+  if (saved.titleBarMode === "match" && !saved.tbClear103) {
+    config.titleBarMode = "clear"; config.tbClear103 = true;
+    try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); diagWrite("[titlebar] 「跟随壁纸颜色」换成「透明」（升级到 v0.10.3 时只换一次）"); } catch (e) { warn("config migrate failed", e); }
+  }
+  try {
+    const n = spillConfig(config);
+    if (n) {
+      fs.mkdirSync(cfgDir(), { recursive: true });
+      fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8");
+      fs.renameSync(configPath + ".tmp", configPath);
+      diagWrite(`[config] 把 ${n} 张内嵌大图存成了文件（agywe\\assets），config.json 变小了`);
+    }
+  } catch (e) { warn("config spill failed", e); }
   return config;
 }
 
@@ -243,8 +329,10 @@ async function saveConfig(patch) {
     const k = patch.current.kind + ":" + patch.current.id;
     config.recent = [k, ...(config.recent || []).filter((x) => x !== k)].slice(0, 24);
   }
-  if (patch && "nowPlaying" in patch) { try { setTimeout(syncNowPlaying, 0); } catch { } }
+  try { spillConfig(config); } catch (e) { warn("config spill failed", e); }
+  if (patch && ("nowPlaying" in patch || "battery" in patch)) { try { setTimeout(syncNowPlaying, 0); } catch { } }
   if (patch && "autoFix" in patch) { try { setTimeout(syncAutoFix, 0); } catch { } }
+  if (patch && ("titleBarMode" in patch || "transparentTitleBar" in patch || "enabled" in patch)) { try { setTimeout(syncTitleBars, 0); } catch { } }
   await fsp.mkdir(cfgDir(), { recursive: true });
   const tmp = configPath + ".tmp";
   await fsp.writeFile(tmp, JSON.stringify(config, null, 2), "utf8");
@@ -571,10 +659,10 @@ async function handleApi(sub, request, url) {
   if (sub === "stats" && method === "GET") return json({ days: statsWindow(Math.max(1, Math.min(30, Number(url.searchParams.get("days")) || 7))) });
   if (sub === "info" && method === "GET") {
     const p = await wePaths(false);
-    return json({ version: AGYWE_VERSION, app: app.getVersion(), electron: process.versions.electron, paths: p, configPath, petApps: petApps.map((x) => ({ name: x.name, dir: x.dir })), audioState, nowPlaying: npPublic(), npError, autofix: autofixInfo(),
+    return json({ version: AGYWE_VERSION, app: app.getVersion(), electron: process.versions.electron, paths: p, configPath, petApps: petApps.map((x) => ({ name: x.name, dir: x.dir })), audioState, nowPlaying: npPublic(), npError, npSuspended, npMode: npUseFile ? "file" : "encoded", autofix: autofixInfo(),
       safe: { on: safe.on, reason: safe.reason, fails: safe.fails }, power: { battery: onBattery },
       notify: (() => { try { return !!(electron.Notification && electron.Notification.isSupported()); } catch { return false; } })(),
-      hotkeys: { conflicts: hkConflicts, last: hkLast } });
+      hotkeys: { conflicts: hkConflicts, last: hkLast }, fuses: fuseInfo || await loadFuses() });
   }
   if (sub === "library" && method === "GET") {
     const lib = await scanLibrary(url.searchParams.get("refresh") === "1");
@@ -1080,15 +1168,115 @@ function npPublic() {
   const { thumb, thumbType, thumbError, ...rest } = np;
   return { ...rest, hasArtwork: !!npArt && !!np.hasArtwork };
 }
+// v0.10.1：脚本先写成 agywe\media-helper.ps1 再用 -File 启动（-EncodedCommand 容易被杀毒软件拦）；
+// -File 起不来时自动退回 -EncodedCommand
+let npUseFile = true, npSuspended = "";
+function psScriptFile(name, lines) {
+  try {
+    const f = path.join(cfgDir(), name);
+    const body = "\uFEFF" + lines.join("\r\n") + "\r\n";
+    let same = false;
+    try { same = fs.readFileSync(f, "utf8") === body; } catch { }
+    if (!same) { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(f, body, "utf8"); }
+    return f;
+  } catch (e) { warn("write ps script failed", name, e); return null; }
+}
+function psArgs(name, lines, extra) {
+  const base = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"];
+  const f = npUseFile ? psScriptFile(name, lines) : null;
+  if (f) return { args: [...base, "-File", f, ...(extra || [])], file: true };
+  return { args: [...base, "-EncodedCommand", encPs(lines)], file: false };
+}
+// 用不着的时候别让 PowerShell 常驻：关了「正在播放」、安全模式、所有窗口都最小化 / 隐藏、用电池且设成暂停壁纸
+function npWantReason() {
+  const c = loadConfig();
+  if (!c.nowPlaying) return "off";
+  if (safe.on) return "safe";
+  if (onBattery && ((c.battery || {}).mode === "pause")) return "battery";
+  if (npAllHidden) return "hidden";
+  return "";
+}
+let npAllHidden = false, npHideT = 0;
+function npCheckWindows() {
+  let visible = false;
+  try { for (const w of BrowserWindow.getAllWindows()) { try { if (!w.isDestroyed() && w.isVisible() && !w.isMinimized()) { visible = true; break; } } catch { } } } catch { visible = true; }
+  clearTimeout(npHideT);
+  if (visible) { if (npAllHidden) { npAllHidden = false; syncNowPlaying(); } return; }
+  npHideT = setTimeout(() => { npAllHidden = true; syncNowPlaying(); }, 30000);   // 最小化半分钟后再停，免得来回切的时候反复起停
+}
+// ---- v0.10.2 标题栏：窗口右上角最小化 / 最大化 / 关闭那一条是 Electron 自己画的（titleBarOverlay），
+// 不在网页里，毛玻璃碰不到。这里在主进程直接改它的底色：
+//   match = 用界面算好的「这一条底下实际的颜色」填（agywe:tb-color），clear = 完全透明（有的电脑会变成纯黑）
+const tbOrig = new WeakMap();      // win -> Antigravity 自己最后一次设的 { color, symbolColor, height }
+const tbTouched = new WeakSet();   // 我们改过的窗口（关掉时才需要还原）
+const tbMatch = { color: null, symbol: null };
+let tbLog = 0;
+const tbDiag = (s) => { if (tbLog++ < 40) diagWrite("[titlebar] " + s); };
+function tbMode() { const c = loadConfig(); if (!c.enabled || safe.on) return "off"; return c.titleBarMode === "match" || c.titleBarMode === "clear" ? c.titleBarMode : "off"; }
+function tbTarget() {
+  const m = tbMode();
+  // v0.10.3：Electron 只认 #rrggbb / rgba()，以前写的 #00000000 会被当成错误直接拒掉，所以「完全透明」从来没生效过
+  if (m === "clear") return { color: "rgba(0, 0, 0, 0)", ...(tbMatch.symbol ? { symbolColor: tbMatch.symbol } : {}) };
+  if (m === "match" && tbMatch.color) return { color: tbMatch.color, symbolColor: tbMatch.symbol };
+  return null;
+}
+try {
+  const proto = BrowserWindow && BrowserWindow.prototype;
+  const origSet = proto && proto.setTitleBarOverlay;
+  if (typeof origSet === "function") {
+    proto.setTitleBarOverlay = function (opts) {
+      let o = opts;
+      try {
+        if (opts && typeof opts === "object" && !opts.__agywe) {
+          tbOrig.set(this, { ...(tbOrig.get(this) || {}), ...opts });
+          const tg = tbTarget();
+          if (tg) { o = { ...opts, ...tg }; tbTouched.add(this); }
+          tbDiag(`Antigravity 设置 ${JSON.stringify(opts).slice(0, 120)} → ${tg ? "改成 " + JSON.stringify(tg) : "不改"}`);
+        }
+        if (o && o.__agywe) { o = { ...o }; delete o.__agywe; }
+      } catch { }
+      return origSet.call(this, o);
+    };
+    tbDiag("已接管 setTitleBarOverlay");
+  } else tbDiag("这个 Electron 没有 setTitleBarOverlay");
+} catch (e) { warn("titlebar hook failed", e); }
+function applyTitleBar(win) {
+  try {
+    if (!win || win.isDestroyed() || typeof win.setTitleBarOverlay !== "function") return;
+    const tg = tbTarget(), o = tbOrig.get(win);
+    if (tg) { win.setTitleBarOverlay({ __agywe: true, ...tg }); tbTouched.add(win); tbDiag(`窗口 ${win.id} → ${JSON.stringify(tg)}`); }
+    else if (tbTouched.has(win) && o && o.color) { win.setTitleBarOverlay({ __agywe: true, color: o.color, ...(o.symbolColor ? { symbolColor: o.symbolColor } : {}) }); tbTouched.delete(win); tbDiag(`窗口 ${win.id} 还原 ${o.color}`); }
+  } catch (e) { tbDiag(`窗口设置失败：${e && e.message || e}`); }
+}
+function syncTitleBars() { try { for (const w of BrowserWindow.getAllWindows()) applyTitleBar(w); } catch { } }
+try {
+  ipcMain.on("agywe:tb-color", (e, v) => {
+    try {
+      const ok = (s) => /^#[0-9a-f]{6}$/i.test(String(s || ""));
+      if (!v || !ok(v.color) || !ok(v.symbol)) return;
+      tbMatch.color = v.color; tbMatch.symbol = v.symbol;
+      if (tbMode() !== "off") applyTitleBar(BrowserWindow.fromWebContents(e.sender));
+    } catch { }
+  });
+} catch { }
+try {
+  app.on("browser-window-created", (_e, w) => {
+    try { for (const ev of ["minimize", "restore", "hide", "show", "closed"]) w.on(ev, () => setTimeout(npCheckWindows, 50)); } catch { }
+    try { w.webContents.on("did-finish-load", () => { if (tbTarget()) applyTitleBar(w); }); w.once("ready-to-show", () => { if (tbTarget()) applyTitleBar(w); }); } catch { }
+  });
+} catch { }
 function startNowPlaying() {
   if (process.platform !== "win32" || npProc || npStopped || safe.on) return;
-  if (!loadConfig().nowPlaying) return;
+  if (npWantReason()) return;
   const { spawn } = require("child_process");
-  let child;
+  let child, viaFile = false;
   try {
-    child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encPs([...PS_HEAD, ...PS_LOOP])], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const a = psArgs("media-helper.ps1", [...PS_HEAD, ...PS_LOOP]);
+    viaFile = a.file;
+    child = spawn("powershell.exe", a.args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) { npError = String(e && e.message || e); warn("now playing spawn failed", e); return; }
   npProc = child;
+  const t0 = Date.now();
   let buf = "", errBuf = "", lines = 0;
   child.stdout.setEncoding("utf8");
   child.stdout.on("data", (d) => {
@@ -1110,8 +1298,9 @@ function startNowPlaying() {
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (d) => { if (errBuf.length < 4000) errBuf += d; });
   child.on("exit", (code) => {
-    npProc = null;
+    if (npProc === child) npProc = null;
     if (errBuf) { npError = errBuf.trim().slice(0, 500); diagWrite({ nowPlayingExit: code, stderr: errBuf.slice(0, 2000) }); }
+    if (viaFile && !lines && Date.now() - t0 < 15000 && !npStopped) { npUseFile = false; diagWrite("[np] -File 方式没起来，改用 -EncodedCommand"); }
     if (!npStopped && npRestarts++ < 5) setTimeout(startNowPlaying, 5000 * npRestarts);
   });
 }
@@ -1120,9 +1309,13 @@ const MEDIA_ACTIONS = { playPause: "TryTogglePlayPauseAsync", play: "TryPlayAsyn
 function mediaControl(action) {
   const m = MEDIA_ACTIONS[action];
   if (!m || process.platform !== "win32") return Promise.resolve(false);
-  const lines = [...PS_HEAD, "$s = $mgr.GetCurrentSession()", "if ($null -ne $s) { $null = Await ($s." + m + "()) ([bool]) }"];
+  // 动作名经过白名单（MEDIA_ACTIONS），脚本里再校验一次
+  const fileLines = ["param([string]$Action = '')", "if ($Action -notmatch '^Try(TogglePlayPause|Play|Pause|SkipNext|SkipPrevious)Async$') { exit 2 }", ...PS_HEAD, "$s = $mgr.GetCurrentSession()", "if ($null -ne $s) { $null = Await ($s.$Action()) ([bool]) }"];
+  const encLines = [...PS_HEAD, "$s = $mgr.GetCurrentSession()", "if ($null -ne $s) { $null = Await ($s." + m + "()) ([bool]) }"];
+  const f = npUseFile ? psScriptFile("media-control.ps1", fileLines) : null;
+  const args = f ? ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", f, "-Action", m] : ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encPs(encLines)];
   return new Promise((resolve) => {
-    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encPs(lines)], { windowsHide: true, timeout: 8000 }, (err) => {
+    execFile("powershell.exe", args, { windowsHide: true, timeout: 8000 }, (err) => {
       if (err) warn("media control failed", action, err.message);
       resolve(!err);
     });
@@ -1131,9 +1324,13 @@ function mediaControl(action) {
 try { app.on("before-quit", stopNowPlaying); } catch { }
 // 设置里开关「正在播放」后跟着起停
 function syncNowPlaying() {
-  const want = !!loadConfig().nowPlaying;
-  if (want) { npStopped = false; npRestarts = 0; startNowPlaying(); }
-  else if (npProc || np) { stopNowPlaying(); }
+  const why = npWantReason();
+  if (!why) { if (npSuspended) diagWrite(`[np] 恢复后台（之前因为 ${npSuspended} 停着）`); npSuspended = ""; npStopped = false; npRestarts = 0; startNowPlaying(); }
+  else {
+    if ((npProc || np) && why !== "off") diagWrite(`[np] 停掉后台 PowerShell：${why}`);
+    npSuspended = why === "off" ? "" : why;
+    if (npProc || np) stopNowPlaying(); else npStopped = true;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1177,6 +1374,18 @@ try {
 //    等更新装完再把插件装回去
 // ---------------------------------------------------------------------------
 const PLUGIN_DIR = (() => { try { const la = process.env.LOCALAPPDATA; return la ? path.join(la, "Programs", "agywe-wallpaper") : null; } catch { return null; } })();
+// v0.10.2：把 Antigravity.exe 的实际位置记到插件文件夹里（antigravity-path.txt），
+// 装在别的盘 / 别的目录时，几个 .cmd 和自动重装靠它找到程序（findag.ps1 会读）
+function rememberExePath() {
+  try {
+    if (!PLUGIN_DIR || !fs.existsSync(PLUGIN_DIR)) return;
+    const exe = process.execPath;
+    if (!exe || !/antigravity\.exe$/i.test(exe)) return;
+    const f = path.join(PLUGIN_DIR, "antigravity-path.txt");
+    let old = ""; try { old = fs.readFileSync(f, "utf8").trim(); } catch { }
+    if (old !== exe) { fs.writeFileSync(f, exe, "utf8"); diagWrite(`[path] 记下 Antigravity 位置 ${exe.length} 字符`); }
+  } catch (e) { warn("remember exe path failed", e); }
+}
 const RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const RUN_NAME = "agywe-autofix";
 const autofixScript = () => (PLUGIN_DIR ? path.join(PLUGIN_DIR, "autofix.ps1") : null);
@@ -1575,6 +1784,7 @@ try {
 // ---------------------------------------------------------------------------
 // v0.8 任务栏闪烁：Antigravity 不在前台时，agent 完成 / 需要确认 / 出错，让任务栏图标闪，点回窗口就停
 // ---------------------------------------------------------------------------
+const flashWins = new WeakSet();
 try {
   ipcMain.on("agywe:flash", (e, kind) => {
     try {
@@ -1582,7 +1792,11 @@ try {
       const win = BrowserWindow.fromWebContents(e.sender);
       if (!win || win.isDestroyed() || win.isFocused()) return;
       win.flashFrame(true);
-      win.once("focus", () => { try { win.flashFrame(false); } catch { } });
+      // v0.10.2：窗口不在前台时连着完成好几次，以前每次都会再挂一个 focus 监听
+      if (!flashWins.has(win)) {
+        flashWins.add(win);
+        win.once("focus", () => { flashWins.delete(win); try { win.flashFrame(false); } catch { } });
+      }
       diagWrite(`[flash] ${String(kind || "").slice(0, 20)}`);
     } catch (err) { warn("flash failed", err); }
   });
@@ -1597,8 +1811,8 @@ function installPower() {
     const pm = electron.powerMonitor;
     if (!pm) return;
     try { onBattery = typeof pm.isOnBatteryPower === "function" ? !!pm.isOnBatteryPower() : !!pm.onBatteryPower; } catch { }
-    pm.on("on-battery", () => { onBattery = true; diagWrite("[power] 拔掉电源"); powerBroadcast(); });
-    pm.on("on-ac", () => { onBattery = false; diagWrite("[power] 接上电源"); powerBroadcast(); });
+    pm.on("on-battery", () => { onBattery = true; diagWrite("[power] 拔掉电源"); powerBroadcast(); try { syncNowPlaying(); } catch { } });
+    pm.on("on-ac", () => { onBattery = false; diagWrite("[power] 接上电源"); powerBroadcast(); try { syncNowPlaying(); } catch { } });
     diagWrite(`[power] ${onBattery ? "用电池" : "插着电源"}`);
   } catch (e) { warn("power monitor failed", e); }
 }
@@ -1642,6 +1856,9 @@ async function buildDiagReport() {
   out.push(`插件 v${AGYWE_VERSION} · Antigravity ${app.getVersion()} · Electron ${process.versions.electron} · Chrome ${process.versions.chrome}`);
   out.push(`系统 ${os.type()} ${os.release()} ${os.arch()} · 内存 ${Math.round(os.totalmem() / 1073741824)} GB · ${(os.cpus() || []).length} 线程`);
   out.push(`安全模式 ${safe.on ? "开（" + safe.reason + "）" : "关"} · 连续失败 ${safe.fails} · 电源 ${onBattery ? "电池" : "插电"} · 系统音频 ${audioState} · 正在播放 ${np ? (np.hasMedia ? "有媒体" : "没在放") : "未连接"}${npError ? "（" + npError.slice(0, 120) + "）" : ""}`);
+  const fz = fuseInfo || await loadFuses();
+  out.push(`Electron 安全开关 ${fz && fz.found ? fz.raw + "（RunAsNode " + fz.runAsNode + " · 程序包完整性校验 " + fz.asarIntegrity + "）" : "没读到"} · 正在播放后台 ${npProc ? "运行中" : npSuspended ? "暂停（" + npSuspended + "）" : "没在跑"}（${npUseFile ? "-File" : "-EncodedCommand"}）`);
+  try { const st = fs.statSync(configPath); out.push(`config.json ${Math.round(st.size / 1024)} KB · 存成文件的图片 ${(() => { try { return fs.readdirSync(assetsDir()).length; } catch { return 0; } })()} 张`); } catch { }
   out.push(`壁纸库 ${lib ? lib.items.length : "?"} 张 · 桌宠程序 ${petApps.map((x) => x.name).join("、") || "没找到"} · 窗口 ${liveHubs().length} 个`);
   H("路径"); out.push(JSON.stringify(wp, null, 1));
   H("设置（内嵌图片已省略）"); out.push(JSON.stringify(redact(cfg), null, 1));
@@ -1652,7 +1869,7 @@ async function buildDiagReport() {
   const glass = L.filter((l) => l.includes('"glass-report"')).slice(-1)[0];
   H("最近一次毛玻璃报告"); out.push(glass ? cut(glass, 40000) : "（没有）");
   H("最近的通知 / agent 状态 / 安全模式"); out.push(...L.filter((l) => /app-notification|agent-count|\[flash\]|\[safe\]|\[power\]|safe-mode/.test(l)).slice(-50).map((l) => cut(l, 400)));
-  H("最近的警告"); out.push(...L.filter((l) => /\[warn\]|renderGone|load-fail|\[console:[23]\]|wall-failed|❌/.test(l)).slice(-60).map((l) => cut(l, 600)));
+  H("最近的警告"); out.push(...L.filter((l) => /\[warn\]|renderGone|load-fail|\[console:[23]\]|wall-failed|glass-slow|❌/.test(l)).slice(-60).map((l) => cut(l, 600)));
   H("日志最后 200 行"); out.push(...L.slice(-200).map((l) => cut(l, 800)));
   return out.join("\r\n");
 }
@@ -1815,6 +2032,61 @@ async function restoreBackup(file) {
 }
 
 
+
+// ---------------------------------------------------------------------------
+// v0.10.1 读 Antigravity.exe 里的 Electron 安全开关（给自检 / 诊断报告 / 关于页用），结果按 exe 大小 + 时间缓存
+// ---------------------------------------------------------------------------
+const FUSE_SENTINEL = Buffer.from("dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX", "latin1");
+const FUSE_NAMES = ["runAsNode", "cookieEncryption", "nodeOptions", "nodeCliInspect", "asarIntegrity", "onlyLoadAppFromAsar", "browserV8Snapshot", "fileProtocolPrivileges", "wasmTrapHandlers"];
+let fuseInfo = null;
+async function readFusesAsync(exe) {
+  let fh;
+  try { fh = await fsp.open(exe, "r"); } catch (e) { return { found: false, error: String(e && e.message || e) }; }
+  try {
+    const size = (await fh.stat()).size, CH = 4 * 1024 * 1024, keepN = FUSE_SENTINEL.length - 1;
+    const buf = Buffer.alloc(CH + FUSE_SENTINEL.length);
+    let base = 0, carry = 0, pos = 0;
+    while (pos < size) {
+      const { bytesRead: n } = await fh.read(buf, carry, CH, pos);
+      if (n <= 0) break;
+      pos += n;
+      const len = carry + n;
+      const i = buf.subarray(0, len).indexOf(FUSE_SENTINEL);
+      if (i >= 0) {
+        const t = Buffer.alloc(48);
+        await fh.read(t, 0, 48, base + i + FUSE_SENTINEL.length);
+        const cnt = t[1], out = { found: true, version: t[0], raw: "" };
+        for (let j = 0; j < cnt && j + 2 < t.length; j++) {
+          const ch = String.fromCharCode(t[j + 2]); out.raw += ch;
+          if (j < FUSE_NAMES.length) out[FUSE_NAMES[j]] = ch === "1" ? true : ch === "0" ? false : null;
+        }
+        return out;
+      }
+      const keep = Math.min(len, keepN);
+      buf.copy(buf, 0, len - keep, len);
+      base += len - keep; carry = keep;
+      await new Promise((r) => setTimeout(r, 0));   // 一块一块读，别卡住主进程
+    }
+    return { found: false };
+  } catch (e) { return { found: false, error: String(e && e.message || e) }; }
+  finally { try { await fh.close(); } catch { } }
+}
+async function loadFuses() {
+  try {
+    const exe = process.execPath;
+    const st = await fsp.stat(exe);
+    const key = st.size + ":" + Math.round(st.mtimeMs);
+    const cf = path.join(cfgDir(), "fuses.json");
+    try { const c = JSON.parse(await fsp.readFile(cf, "utf8")); if (c && c.key === key && c.fuses) { fuseInfo = c.fuses; return fuseInfo; } } catch { }
+    const t0 = Date.now();
+    fuseInfo = await readFusesAsync(exe);
+    if (!fuseInfo.error) { try { await fsp.writeFile(cf, JSON.stringify({ key, fuses: fuseInfo })); } catch { } }   // 读失败的不缓存，下次再试
+    diagWrite(`[fuses] ${JSON.stringify(fuseInfo)}（${Date.now() - t0} ms）`);
+    if (fuseInfo.found && fuseInfo.runAsNode === false) warn("这个版本的 Antigravity 关掉了 RunAsNode：插件下次更新后没法自动装回");
+  } catch (e) { fuseInfo = { found: false, error: String(e && e.message || e) }; }
+  return fuseInfo;
+}
+
 // ---------------------------------------------------------------------------
 // v0.10 系统占用小组件：CPU（两次采样的差）、内存、Antigravity 自己占的内存
 // ---------------------------------------------------------------------------
@@ -1867,9 +2139,11 @@ app.whenReady().then(() => {
     installDisplayMedia();
     setTimeout(startNowPlaying, 1500);
     setTimeout(syncAutoFix, 4000);
+    setTimeout(rememberExePath, 3000);
     setTimeout(watchUpdater, 6000);
     installPower();
     setTimeout(scanHotkeyConflicts, 9000);
+    setTimeout(() => { loadFuses().catch(() => { }); }, 25000);
   } catch (e) { warn("init failed", e); }
 }).catch(() => { });
 
