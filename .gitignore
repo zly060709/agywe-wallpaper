@@ -1,0 +1,11 @@
+# 运行时生成的日志和状态（里面有本机用户名、对话标题等，不要提交）
+*.log
+*.log.old
+autofix.off
+# 旧版本备份
+_backup_*/
+# 安装器的临时文件
+*.agywe-tmp
+# 导出的诊断报告 / 备份
+agywe-诊断报告-*.txt
+agywe-完整备份-*.json
