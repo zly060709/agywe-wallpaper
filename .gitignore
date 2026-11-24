@@ -9,3 +9,15 @@ _backup_*/
 # 导出的诊断报告 / 备份
 agywe-诊断报告-*.txt
 agywe-完整备份-*.json
+
+# agywe 本地运行时生成的文件（日志、备份、本机路径），不要提交
+*.log
+*.log.old
+antigravity-path.txt
+autofix.off
+media-helper.ps1
+_backup_*/
+_removed_plugins/
+_publish/
+_ui/
+remove-old-plugins.*

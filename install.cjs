@@ -23,7 +23,7 @@ const path = require("path");
 const crypto = require("crypto");
 const cp = require("child_process");
 
-const AGYWE_VERSION = "0.10.0";
+const AGYWE_VERSION = "0.10.7";
 const PAYLOAD = path.join(__dirname, "payload");
 const PATCHED = ["dist/main.js", "dist/customScheme.js", "dist/preload.js"];
 const MARK = "dist/agywe/manifest.json";
@@ -133,26 +133,85 @@ function repack(a, overrides) {
   return Buffer.concat([sizePickle, headerPickle, ...chunks]);
 }
 
+
 // ---------------------------------------------------------------------------
-// 补丁
+// v0.10.1 Electron 安全开关（fuses）：Antigravity.exe 里写死的一串标志位
+//   asarIntegrity 开 = 程序包被改动就启动失败 → 不能装
+//   runAsNode 关    = 安装器借不了 Antigravity.exe 跑 Node → 根本跑不起来（cmd 里会先用 fusecheck.ps1 拦住）
+// ---------------------------------------------------------------------------
+const FUSE_SENTINEL = Buffer.from("dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX", "latin1");
+const FUSE_NAMES = ["runAsNode", "cookieEncryption", "nodeOptions", "nodeCliInspect", "asarIntegrity", "onlyLoadAppFromAsar", "browserV8Snapshot", "fileProtocolPrivileges", "wasmTrapHandlers"];
+function parseFuseWire(t) {
+  const cnt = t[1], out = { found: true, version: t[0], count: cnt, raw: "" };
+  for (let j = 0; j < cnt && j + 2 < t.length; j++) {
+    const ch = String.fromCharCode(t[j + 2]);
+    out.raw += ch;
+    if (j < FUSE_NAMES.length) out[FUSE_NAMES[j]] = ch === "1" ? true : ch === "0" ? false : null;   // "r" = 已移除
+  }
+  return out;
+}
+function readFuses(exe) {
+  let fd;
+  try { fd = fs.openSync(exe, "r"); } catch (e) { return { found: false, error: String(e && e.message || e) }; }
+  try {
+    const size = fs.fstatSync(fd).size, CH = 8 * 1024 * 1024, keepN = FUSE_SENTINEL.length - 1;
+    const buf = Buffer.alloc(CH + FUSE_SENTINEL.length);
+    let base = 0, carry = 0, filePos = 0;
+    while (filePos < size) {
+      const n = fs.readSync(fd, buf, carry, CH, filePos);
+      if (n <= 0) break;
+      filePos += n;
+      const len = carry + n;
+      const i = buf.subarray(0, len).indexOf(FUSE_SENTINEL);
+      if (i >= 0) {
+        const t = Buffer.alloc(48);
+        fs.readSync(fd, t, 0, 48, base + i + FUSE_SENTINEL.length);
+        return parseFuseWire(t);
+      }
+      const keep = Math.min(len, keepN);
+      buf.copy(buf, 0, len - keep, len);
+      base += len - keep; carry = keep;
+    }
+    return { found: false };
+  } catch (e) { return { found: false, error: String(e && e.message || e) }; }
+  finally { try { fs.closeSync(fd); } catch { } }
+}
+function fuseLine(f) {
+  if (!f || !f.found) return "没读到（" + ((f && f.error) || "可能是新的 Electron 版本") + "）";
+  const on = (v) => (v === true ? "开" : v === false ? "关" : "已移除");
+  return `RunAsNode ${on(f.runAsNode)} · 程序包完整性校验 ${on(f.asarIntegrity)} · 只从程序包加载 ${on(f.onlyLoadAppFromAsar)}`;
+}
+
+// ---------------------------------------------------------------------------
+// 补丁（v0.10.1：按结构匹配，不再写死 electron_1 这种编译出来的变量名）
 // ---------------------------------------------------------------------------
 const HOOK_LINE = 'try { require("./agywe/hook.js"); } catch (e) { try { console.error("[agywe] hook failed", e); } catch (_) { } }\n';
-const SCHEME_ANCHOR = "electron_1.protocol.registerSchemesAsPrivileged([";
-const SCHEME_INSERT = SCHEME_ANCHOR + '...(function () { try { return [require("./agywe/scheme.js").privileged]; } catch (e) { return []; } })(),';
-const PRELOAD_ANCHOR = 'const electron_1 = require("electron");';
+// xxx.protocol.registerSchemesAsPrivileged([   /   (0, e.protocol.registerSchemesAsPrivileged)([   /   protocol.registerSchemesAsPrivileged([
+const SCHEME_RE_SRC = String.raw`(?:\b[A-Za-z_$][\w$]*\s*\.\s*)?\bprotocol\s*\.\s*registerSchemesAsPrivileged\s*\)?\s*\(\s*\[`;
+const SCHEME_ITEM = '...(function () { try { return [require("./agywe/scheme.js").privileged]; } catch (e) { return []; } })(),';
+// 文件开头的 "use strict"（前面允许有 BOM、空白和注释；单双引号都行）
+const STRICT_RE = /^(\uFEFF?(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*)(["'])use strict\2;?[ \t]*(\r?\n)?/;
+const CUSTOM_SCHEME_RE = /\brequire\(\s*["']\.\/customScheme(?:\.js)?["']\s*\)/;
+const ELECTRON_REQ_RE = /\brequire\(\s*["']electron["']\s*\)/;
+const schemeHits = (src) => src.match(new RegExp(SCHEME_RE_SRC, "g")) || [];
 
 function checkAnchors(main, scheme, preload) {
   const errs = [];
-  if (!/^"use strict";\r?\n/.test(main)) errs.push('main.js 开头不是 "use strict";');
-  if (!main.includes('require("./customScheme")')) errs.push("main.js 里没有找到 customScheme 引用");
-  if (scheme.split(SCHEME_ANCHOR).length !== 2) errs.push("customScheme.js 里没有找到唯一的 registerSchemesAsPrivileged([");
-  if (!preload.includes(PRELOAD_ANCHOR)) errs.push("preload.js 结构不符");
+  if (!CUSTOM_SCHEME_RE.test(main)) errs.push("main.js 里没有找到 customScheme 引用");
+  const n = schemeHits(scheme).length;
+  if (n !== 1) errs.push("customScheme.js 里没有找到唯一的 registerSchemesAsPrivileged([（找到 " + n + " 处）");
+  if (!ELECTRON_REQ_RE.test(preload)) errs.push("preload.js 结构不符（没有引用 electron）");
   if (!preload.includes("agent:update-active-count")) errs.push("preload.js 里没有 agent 计数接口（不影响壁纸，只影响 agent 联动）");
   return errs;
 }
 
-function patchMain(src) { return src.replace(/^"use strict";\r?\n/, (m) => m + HOOK_LINE); }
-function patchScheme(src) { return src.replace(SCHEME_ANCHOR, SCHEME_INSERT); }
+function patchMain(src) {
+  const m = STRICT_RE.exec(src);
+  if (!m) return HOOK_LINE + src;   // 没有 "use strict"：放在最前面
+  const head = m[0];
+  return head + (m[3] ? "" : "\n") + HOOK_LINE + src.slice(head.length);
+}
+function patchScheme(src) { return src.replace(new RegExp(SCHEME_RE_SRC), (m) => m + SCHEME_ITEM); }
 function patchPreload(src, inject) { return src.replace(/\s*$/, "\n") + inject; }
 
 function listPayload(dir, rel = "") {
@@ -294,18 +353,26 @@ function status(dir) {
   const pkg = JSON.parse(fileBytes(a, "package.json").toString("utf8"));
   const mark = fileBytes(a, MARK);
   info("Antigravity", pkg.version, "位于", dir);
+  const fuses = readFuses(path.join(dir, "Antigravity.exe"));
+  info("安全开关：" + fuseLine(fuses));
   if (mark) { const m = JSON.parse(mark.toString("utf8")); info("壁纸插件：已安装 v" + m.version + "（安装于 " + m.installedAt + "）"); }
   else info("壁纸插件：未安装");
   const bak = asar + ".agywe-backup";
   if (fs.existsSync(bak)) {
     try { const b = readAsar(bak); info("整包备份：", JSON.parse(fileBytes(b, "package.json").toString("utf8")).version, bak); } catch { info("整包备份：存在但无法解析", bak); }
   }
-  return { a, pkg, installed: !!mark };
+  return { a, pkg, installed: !!mark, fuses };
 }
 
 function install(dir, force) {
   const asar = path.join(dir, "resources", "app.asar");
-  const { a, pkg, installed } = status(dir);
+  const { a, pkg, installed, fuses } = status(dir);
+  if (fuses && fuses.found && fuses.asarIntegrity === true) {
+    throw new Error("这个版本的 Antigravity 打开了「程序包完整性校验」（Electron 的 EnableEmbeddedAsarIntegrityValidation）。\n" +
+      "  改动 app.asar 后它会直接启动失败，所以这次没有修改任何文件，Antigravity 照常能用。\n" +
+      "  插件暂时没法装在这个版本上，等插件更新吧。");
+  }
+  if (fuses && !fuses.found) warn("没读到 Antigravity.exe 的安全开关，继续安装。万一装完打不开，运行 uninstall.cmd 或 restore-backup.cmd 还原。");
   ensureClosed(force);
   let pristine = a;
   if (installed) {
@@ -373,4 +440,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { readAsar, readAsarFromBuffer, repack, fileBytes, nodeAt, buildInstall, pristineOverrides, checkAnchors, patchMain, patchScheme };
+module.exports = { readAsar, readAsarFromBuffer, repack, fileBytes, nodeAt, buildInstall, pristineOverrides, checkAnchors, patchMain, patchScheme, readFuses, parseFuseWire, fuseLine };

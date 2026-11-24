@@ -6,9 +6,12 @@ $ErrorActionPreference = "Continue"
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 $Dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Log = Join-Path $Dir "autofix.log"
-$AgDir = Join-Path $env:LOCALAPPDATA "Programs\antigravity"
-if ($env:AGYWE_EXE) { $AgDir = Split-Path -Parent $env:AGYWE_EXE }
-$Exe = Join-Path $AgDir "Antigravity.exe"
+# v0.10.2：程序位置交给 findag.ps1 找（环境变量 / 插件记下的位置 / 默认位置 / 注册表），找不到再用默认位置
+$Exe = $null
+try { $Exe = (& (Join-Path $Dir "findag.ps1") | Select-Object -First 1) } catch { }
+if (-not $Exe) { $Exe = Join-Path $env:LOCALAPPDATA "Programs\antigravity\Antigravity.exe"; if ($env:AGYWE_EXE) { $Exe = $env:AGYWE_EXE } }
+$Exe = [string]$Exe
+$AgDir = Split-Path -Parent $Exe
 $Asar = Join-Path $AgDir "resources\app.asar"
 $CfgFile = Join-Path $env:APPDATA "Antigravity\agywe\config.json"
 
@@ -108,6 +111,15 @@ function RecentlyStarted {
 
 function DoInstall {
   if (-not (Test-Path $Exe)) { Log "找不到 $Exe"; return "fail" }
+  # 先看 Electron 安全开关：RunAsNode 被关或开了程序包完整性校验时，不碰任何文件
+  $fc = Join-Path $Dir "fusecheck.ps1"
+  if (Test-Path $fc) {
+    $fo = ""
+    try { $fo = (& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $fc -Exe $Exe -For install 2>&1 | Out-String) } catch { }
+    $fcode = $LASTEXITCODE
+    if ($fcode -eq 2) { Log ("安全开关：" + (($fo -replace "\r?\n", " ").Trim())); return "nonode" }
+    if ($fcode -eq 3) { Log ("安全开关：" + (($fo -replace "\r?\n", " ").Trim())); return "integrity" }
+  }
   $old = $env:ELECTRON_RUN_AS_NODE
   $env:ELECTRON_RUN_AS_NODE = "1"
   $out = ""
@@ -118,6 +130,7 @@ function DoInstall {
   Log ("安装器退出码 " + $code + "：" + (($out -replace "\r?\n", " | ").Trim()))
   if ($code -eq 0 -and (MarkState) -eq "yes") { return "ok" }
   if ($out -match "结构和插件预期不一致") { return "incompatible" }
+  if ($out -match "程序包完整性校验") { return "integrity" }
   return "fail"
 }
 
@@ -138,6 +151,10 @@ function Report([string]$r, [string]$how) {
   if ($r -eq "ok") {
     if ($how -eq "restart") { Toast "壁纸插件已自动装回" "Antigravity 刚更新完，已经装好插件并重新打开。" }
     else { Toast "壁纸插件已自动装回" "下次打开 Antigravity 就有壁纸了。" }
+  } elseif ($r -eq "integrity") {
+    Toast "新版 Antigravity 不允许改动程序包" "它打开了程序包完整性校验，装上插件会打不开，所以没有改任何文件。等插件更新。"
+  } elseif ($r -eq "nonode") {
+    Toast "新版 Antigravity 暂时装不上壁纸插件" "它关掉了安装器要用的 RunAsNode，没有改任何文件。等插件更新。"
   } elseif ($r -eq "incompatible") {
     Toast "新版 Antigravity 暂时装不上壁纸插件" "它的代码结构变了，为了安全没有改任何文件。详情见插件文件夹里的 autofix.log。"
   } else {
