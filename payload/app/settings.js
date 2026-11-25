@@ -4,7 +4,7 @@
   const bc = "BroadcastChannel" in window ? new BroadcastChannel("agywe") : null;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const parentOrigin = (location.ancestorOrigins && location.ancestorOrigins[0]) || "*";
+  const link = window.agyweParent;   // v0.11.2：和宿主之间的消息通道（parent-link.js）
   let cfg = null;
   let lib = { items: [], paths: {} };
 
@@ -66,7 +66,7 @@
   const flushSave = () => Promise.race([saveQ.flush(), new Promise((r) => setTimeout(r, 1500))]);
   window.addEventListener("pagehide", () => { try { saveQ.flush(); } catch { } });
 
-  const close = () => { flushSave().finally(() => parent.postMessage({ type: "agywe:close-settings" }, parentOrigin)); };
+  const close = () => { flushSave().finally(() => link.post({ type: "agywe:close-settings" })); };
   $("#close").onclick = close;
   $("#backdrop").onclick = close;
   window.addEventListener("keydown", (e) => {
@@ -567,7 +567,7 @@
   $("#udays").onchange = renderUsageStats;
   $("#urefresh").onclick = renderUsageStats;
 
-  $("#petfromui").onclick = () => parent.postMessage({ type: "agywe:pick-pet" }, parentOrigin);
+  $("#petfromui").onclick = () => link.post({ type: "agywe:pick-pet" });
   $("#petpick").onclick = async () => { const c = await post("pick-pet"); if (c && c.pet) { cfg = c; notify("config"); renderPet(); } };
   $("#petreset").onclick = async () => { const c = await post("reset-pet"); if (c && c.pet) { cfg = c; notify("config"); renderPet(); } };
 
@@ -576,14 +576,14 @@
     const f = (cfg.glassForce || []).length, e = (cfg.glassExclude || []).length;
     $("#pickinfo").textContent = f || e ? `已手动加上 ${f} 块、去掉 ${e} 块` : "";
   }
-  $("#pickglass").onclick = () => parent.postMessage({ type: "agywe:pick-glass" }, parentOrigin);
+  $("#pickglass").onclick = () => link.post({ type: "agywe:pick-glass" });
   $("#pickreset").onclick = async () => { cfg.glassForce = []; cfg.glassExclude = []; await save({ glassForce: [], glassExclude: [] }, true); renderPickInfo(); };
 
   // ---------------- 自动切换 ----------------
   let ctx = { conv: "", project: "", title: "", projectLabel: "" };
   let eff = null;
   window.addEventListener("message", (e) => {
-    if (e.source !== parent) return;
+    if (!link.isFromParent(e)) return;
     const d = e.data || {};
     if (d.type === "agywe:context") {
       ctx = { conv: String(d.conv || ""), project: String(d.project || ""), title: String(d.title || ""), projectLabel: String(d.projectLabel || "") };
@@ -670,7 +670,7 @@
   }
   $("#bindConv").onclick = () => bindTo("conv");
   $("#bindProj").onclick = () => bindTo("project");
-  $$("[data-moodtest]").forEach((bt) => bt.onclick = () => parent.postMessage({ type: "agywe:mood-test", mood: bt.dataset.moodtest }, parentOrigin));
+  $$("[data-moodtest]").forEach((bt) => bt.onclick = () => link.post({ type: "agywe:mood-test", mood: bt.dataset.moodtest }));
 
   // ---------------- 开屏动画 ----------------
   const SPLASH_TIP = {
@@ -684,7 +684,7 @@
     $("#splashTip").textContent = SPLASH_TIP[s.style] || SPLASH_TIP.pet;
     $("#splashMediaPath").textContent = s.media ? s.media : "（没有选）";
   }
-  $("#splashPreview").onclick = async () => { await save({}, true); parent.postMessage({ type: "agywe:splash-preview" }, parentOrigin); };
+  $("#splashPreview").onclick = async () => { await save({}, true); link.post({ type: "agywe:splash-preview" }); };
   $("#splashMedia").onclick = async () => { const c = await post("pick-splash-media"); if (c && c.splash) { cfg = c; bindControls(); renderSplash(); notify("config"); } };
   $("#splashMediaReset").onclick = async () => { const c = await post("reset-splash-media"); if (c && c.splash) { cfg = c; bindControls(); renderSplash(); notify("config"); } };
 
@@ -748,10 +748,10 @@
   setInterval(() => { if ($("#tab-play").classList.contains("on")) renderLive(); }, 2000);
 
   // ---------------- v0.7：小组件 / 音效 / 闲置动作 / 主题跟随 ----------------
-  $$("[data-sfxtest]").forEach((b) => b.onclick = () => parent.postMessage({ type: "agywe:sfx-test", name: b.dataset.sfxtest, kind: b.dataset.kind || "" }, parentOrigin));
-  $$("[data-idletest]").forEach((b) => b.onclick = () => parent.postMessage({ type: "agywe:idle-test", act: b.dataset.idletest }, parentOrigin));
-  $$("[data-pomo]").forEach((b) => b.onclick = async () => { await save({}, true); parent.postMessage({ type: "agywe:pomo", op: b.dataset.pomo }, parentOrigin); });
-  $("#openquick").onclick = () => parent.postMessage({ type: "agywe:open-quick" }, parentOrigin);
+  $$("[data-sfxtest]").forEach((b) => b.onclick = () => link.post({ type: "agywe:sfx-test", name: b.dataset.sfxtest, kind: b.dataset.kind || "" }));
+  $$("[data-idletest]").forEach((b) => b.onclick = () => link.post({ type: "agywe:idle-test", act: b.dataset.idletest }));
+  $$("[data-pomo]").forEach((b) => b.onclick = async () => { await save({}, true); link.post({ type: "agywe:pomo", op: b.dataset.pomo }); });
+  $("#openquick").onclick = () => link.post({ type: "agywe:open-quick" });
   function renderTheme() {
     const el = $("#themeSw"); if (!el) return;
     const p = cfg && cfg.palette;
@@ -926,14 +926,14 @@
       row.append(lb, sel);
       if (k !== "busy") {
         const t = document.createElement("button"); t.type = "button"; t.textContent = "试一下";
-        t.onclick = () => parent.postMessage({ type: "agywe:mood-test", mood: k }, parentOrigin);
+        t.onclick = () => link.post({ type: "agywe:mood-test", mood: k });
         row.appendChild(t);
       }
       if (!list.length) { const sm = document.createElement("small"); sm.textContent = "衣柜是空的，先在上面存几套"; row.appendChild(sm); }
       box.appendChild(row);
     }
   }
-  $$("[data-caretest]").forEach((b) => b.onclick = () => parent.postMessage({ type: "agywe:care-test", kind: b.dataset.caretest }, parentOrigin));
+  $$("[data-caretest]").forEach((b) => b.onclick = () => link.post({ type: "agywe:care-test", kind: b.dataset.caretest }));
 
   // ---------------- v0.9 今日统计 ----------------
   const WD = ["日", "一", "二", "三", "四", "五", "六"];
@@ -1021,10 +1021,10 @@
     const b = $("#noisePlay"); if (!b) return;
     b.textContent = noisePlaying ? "⏹ 停止" : "▶ 播放";
   }
-  window.addEventListener("message", (e) => { const d = e.data || {}; if (d.type === "agywe:noise-state") renderNoise(d); });
-  $("#noisePlay").onclick = () => parent.postMessage({ type: "agywe:noise", op: noisePlaying ? "stop" : "start", kind: (cfg.noise || {}).type || "rain", quiet: true }, parentOrigin);
-  $$('[data-k="noise.type"]').forEach((el) => el.addEventListener("change", () => { if (noisePlaying) parent.postMessage({ type: "agywe:noise", op: "start", kind: el.value, quiet: true }, parentOrigin); }));
-  $$("nav button").forEach((b) => b.addEventListener("click", () => { if (b.dataset.tab === "widgets") { renderCountdowns(); parent.postMessage({ type: "agywe:noise-ask" }, parentOrigin); } }));
+  window.addEventListener("message", (e) => { if (!link.isFromParent(e)) return; const d = e.data || {}; if (d.type === "agywe:noise-state") renderNoise(d); });
+  $("#noisePlay").onclick = () => link.post({ type: "agywe:noise", op: noisePlaying ? "stop" : "start", kind: (cfg.noise || {}).type || "rain", quiet: true });
+  $$('[data-k="noise.type"]').forEach((el) => el.addEventListener("change", () => { if (noisePlaying) link.post({ type: "agywe:noise", op: "start", kind: el.value, quiet: true }); }));
+  $$("nav button").forEach((b) => b.addEventListener("click", () => { if (b.dataset.tab === "widgets") { renderCountdowns(); link.post({ type: "agywe:noise-ask" }); } }));
 
   // ---------------- v0.9 完整备份 ----------------
   $("#backupExport").onclick = async () => {
@@ -1048,10 +1048,10 @@
   // ---------------- v0.9 自检 ----------------
   function askParent(type, reply, ms) {
     return new Promise((res) => {
-      const on = (e) => { const d = e.data || {}; if (d.type === reply) { window.removeEventListener("message", on); clearTimeout(t); res(d.r || null); } };
+      const on = (e) => { if (!link.isFromParent(e)) return; const d = e.data || {}; if (d.type === reply) { window.removeEventListener("message", on); clearTimeout(t); res(d.r || null); } };
       const t = setTimeout(() => { window.removeEventListener("message", on); res(null); }, ms);
       window.addEventListener("message", on);
-      try { parent.postMessage({ type }, parentOrigin); } catch { res(null); }
+      if (!link.post({ type })) { window.removeEventListener("message", on); clearTimeout(t); res(null); }
     });
   }
   function askWall(ms) {
@@ -1191,10 +1191,11 @@
     el.textContent = `当前壁纸${c.dark ? "有偏暗的地方" : "有偏亮的地方"}，已经自动调厚：${parts.join("，")}。`;
   }
   window.addEventListener("message", (e) => {
+    if (!link.isFromParent(e)) return;
     const d = e.data || {};
     if (d.type === "agywe:contrast") renderContrast(d.c);
   });
-  const askContrast = () => { try { parent.postMessage({ type: "agywe:want-contrast" }, parentOrigin); } catch { } };
+  const askContrast = () => { try { link.post({ type: "agywe:want-contrast" }); } catch { } };
   $$("nav button").forEach((b) => b.addEventListener("click", () => { if (b.dataset.tab === "look") askContrast(); }));
   $$('[data-k="autoContrast"], [data-k="contrastTarget"], [data-k="panelOpacity"], [data-k="contentOpacity"], [data-k="bubbleOpacity"], [data-k="dim"]').forEach((el) => el.addEventListener("change", () => setTimeout(askContrast, 450)));
 
@@ -1304,8 +1305,8 @@
     renderOutfits();
     askContrast();
     renderCountdowns();
-    try { parent.postMessage({ type: "agywe:noise-ask" }, parentOrigin); } catch { }
+    try { link.post({ type: "agywe:noise-ask" }); } catch { }
     try { bc && bc.postMessage({ type: "who-effective" }); } catch { }
-    parent.postMessage({ type: "agywe:want-context" }, parentOrigin);
+    link.post({ type: "agywe:want-context" });
   })();
 })();

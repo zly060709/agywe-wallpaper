@@ -86,10 +86,10 @@ function matchParen(src, i) {
   throw new Error("圆括号不配对");
 }
 function extractDecl(src, name) {
-  const re = new RegExp("(^|\\n)((?:async\\s+)?function\\s+" + name + "\\s*\\(|const\\s+" + name + "\\s*=)");
+  const re = new RegExp("(^|\\n)[ \\t]*((?:async\\s+)?function\\s+" + name + "\\s*\\(|const\\s+" + name + "\\s*=)");
   const m = re.exec(src);
   if (!m) throw new Error("hook.js 里找不到 " + name + "（被改名了？）");
-  const start = m.index + m[1].length;
+  const start = m.index + m[0].length - m[2].length;
   const isFn = m[2].includes("function");
   const from = isFn ? matchParen(src, start + m[2].length - 1) : start + m[2].length - 1;
   const end = matchBrace(src, src.indexOf("{", from));
@@ -407,7 +407,89 @@ test("设置保存队列", async () => {
 });
 
 // ===========================================================================
-// 6. 本机 Antigravity（只读，在内存里演练安装）
+// 6. 插件页面和宿主之间的消息（v0.11.2）
+// ===========================================================================
+test("消息通道：宿主地址和来源判断", () => {
+  const make = require(path.join(PAYLOAD, "app", "parent-link.js"));
+  const HOST = "https://127.0.0.1:54643";
+  const mkWin = (opts) => {
+    const sent = [];
+    const parent = { postMessage: (m, o) => sent.push([m, o]) };
+    const w = { location: { ancestorOrigins: opts.ao }, document: { referrer: opts.ref || "" }, parent: opts.top ? null : parent };
+    if (opts.top) w.parent = w;
+    return { w, parent, sent };
+  };
+  const quiet2 = (fn) => { const o = console.warn; console.warn = () => { }; try { return fn(); } finally { console.warn = o; } };
+  // 正常：ancestorOrigins 有值
+  { const { w, parent, sent } = mkWin({ ao: [HOST] }); const l = make(w);
+    assert.strictEqual(l.origin, HOST); assert.ok(l.ok);
+    assert.ok(l.post({ type: "x" })); eqJ(sent, [[{ type: "x" }, HOST]], "应该指定宿主地址发");
+    assert.ok(l.isFromParent({ source: parent, origin: HOST }));
+    assert.ok(!l.isFromParent({ source: {}, origin: HOST }), "别的窗口用宿主地址也不能算");
+    assert.ok(!l.isFromParent({ source: parent, origin: "null" }));
+    assert.ok(!l.isFromParent({ source: parent, origin: "agywe://app" }));
+    assert.ok(!l.isFromParent(null)); }
+  // 没有 ancestorOrigins：退到 referrer
+  { const { w, sent } = mkWin({ ao: undefined, ref: HOST + "/c/abc?x=1" }); const l = make(w);
+    assert.strictEqual(l.origin, HOST); l.post({ a: 1 }); assert.strictEqual(sent[0][1], HOST); }
+  // 都拿不到：停用，不能退成 "*"
+  { const { w, parent, sent } = mkWin({ ao: [], ref: "" }); const l = quiet2(() => make(w));
+    assert.strictEqual(l.origin, ""); assert.ok(!l.ok);
+    assert.strictEqual(quiet2(() => l.post({ a: 1 })), false); assert.strictEqual(sent.length, 0, "拿不到宿主地址时不应该发出任何消息");
+    assert.ok(!l.isFromParent({ source: parent, origin: "" })); }
+  // "null" 地址（沙箱）不当宿主
+  { const { w, sent } = mkWin({ ao: ["null"] }); const l = quiet2(() => make(w)); assert.ok(!l.ok); quiet2(() => l.post({})); assert.strictEqual(sent.length, 0); }
+  // 自己就是顶层页面：没有父页面
+  { const { w } = mkWin({ ao: [HOST], top: true }); const l = quiet2(() => make(w)); assert.ok(!l.ok); assert.strictEqual(quiet2(() => l.post({})), false); }
+  return "5 种情况";
+});
+
+test("消息通道：各页面只收宿主的消息，不往 \"*\" 发", () => {
+  const pages = { "index.html": "wall.js", "quick.html": "quick.js", "settings.html": "settings.js" };
+  for (const [html, js] of Object.entries(pages)) {
+    const h = read("payload/app/" + html);
+    const a = h.indexOf('src="parent-link.js"'), b = h.indexOf('src="' + js + '"');
+    assert.ok(a >= 0 && b > a, html + " 必须先加载 parent-link.js 再加载 " + js);
+    const src = read("payload/app/" + js);
+    assert.ok(!/parentOrigin/.test(src), js + " 里还在用旧的 parentOrigin");
+    assert.ok(!/postMessage\([^;]*,\s*["']\*["']\s*\)/.test(src), js + " 里有发往 \"*\" 的消息");
+    assert.ok(!/\bparent\.postMessage\(/.test(src), js + " 绕过消息通道直接发给 parent");
+    const listeners = (src.match(/window\.addEventListener\("message"/g) || []).length;
+    const guards = (src.match(/isFromParent\(e\)/g) || []).length;
+    assert.ok(guards >= listeners, js + "：" + listeners + " 个消息监听，只有 " + guards + " 处来源检查");
+  }
+  const pre = read("payload/preload-inject.js");
+  const i = pre.indexOf('window.addEventListener("message", (e) => {\n      if (e.origin !== ORIGIN) return;');
+  assert.ok(i > 0, "preload-inject.js 里找不到宿主的消息监听");
+  assert.ok(pre.slice(i, i + 400).includes("fromOurFrame(e.source)"), "宿主收消息时没核对来源窗口");
+  const f = /const fromOurFrame = \(src\) => ([^;]+);/.exec(pre);
+  assert.ok(f && /frame/.test(f[1]) && /settingsFrame/.test(f[1]) && /quickFrame/.test(f[1]), "fromOurFrame 没有覆盖三个 iframe");
+  assert.ok(!/postMessage\([^;]*,\s*["']\*["']\s*\)/.test(pre), "preload-inject.js 里有发往 \"*\" 的消息");
+  return "3 个页面 + 宿主";
+});
+
+test("保存失败不吞：壁纸页和快速切换", () => {
+  const w = read("payload/app/wall.js");
+  assert.strictEqual((w.match(/fetch\("\/api\/config", \{ method: "PUT"/g) || []).length, 2, "wall.js 里保存配置应该只走 putCfg（外加自动轮播一处）");
+  const put = extractDecl(w, "putCfg");
+  assert.ok(/if \(!r\.ok\) throw/.test(put) && /c\.error\) throw/.test(put), "putCfg 失败时应该抛错");
+  for (const k of ["agywe:save-pet-url", "agywe:save-glass", "agywe:save-cfg"]) {
+    const i = w.indexOf('d.type === "' + k + '"');
+    assert.ok(i > 0, "找不到 " + k);
+    const block = w.slice(i, w.indexOf("else if (d.type", i + 10));
+    assert.ok(block.includes("saveFailed("), k + " 失败时没有提示");
+  }
+  const sf = extractDecl(w, "saveFailed");
+  assert.ok(sf.includes("agywe:save-failed") && sf.includes("reloadConfig"), "saveFailed 应该通知宿主并按实际配置刷新");
+  assert.ok(/catch \(e\) \{\s*console\.warn\("\[agywe\] 快捷操作失败"[\s\S]{0,200}error:/.test(w), "快捷切换失败时没有提示");
+  const q = read("payload/app/quick.js");
+  const qp = extractDecl(q, "put");
+  assert.ok(qp.includes("return false") && qp.includes("error:") && qp.includes("catch"), "quick.js 的 put 失败时应该提示并返回 false");
+  assert.ok(read("payload/preload-inject.js").includes('d.type === "agywe:save-failed"'), "宿主没处理 agywe:save-failed");
+});
+
+// ===========================================================================
+// 7. 本机 Antigravity（只读，在内存里演练安装）
 // ===========================================================================
 test("本机 Antigravity 程序包还能正常安装（只在内存里演练）", () => {
   const I = require(path.join(ROOT, "install.cjs"));

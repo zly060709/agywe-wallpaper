@@ -4431,8 +4431,17 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
     }
 
     // ---- 与壁纸页 / 设置页通信 ----
+    // v0.11.2：只收插件自己那三个 iframe（壁纸 / 设置 / 快速切换）发来的消息。
+    //   光看来源地址不够：agywe://app 下的任何页面地址都一样；再核对来源窗口，别的页面就冒充不了。
+    const fromOurFrame = (src) => !!src && [frame, settingsFrame, quickFrame].some((f) => !!f && f.contentWindow === src);
+    const droppedMsg = new Set();
     window.addEventListener("message", (e) => {
       if (e.origin !== ORIGIN) return;
+      if (!fromOurFrame(e.source)) {
+        const t = String((e.data && e.data.type) || "?").slice(0, 40);
+        if (!droppedMsg.has(t) && droppedMsg.size < 20) { droppedMsg.add(t); try { diag("msg-dropped", { type: t }); } catch { } }
+        return;
+      }
       const d = e.data || {};
       if (d.type === "agywe:ready") {
         ready = true; audio.boot = !!d.wantAudio; applyCfg(d.config);
@@ -4464,6 +4473,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       else if (d.type === "agywe:pomo") { const op = String(d.op || ""); if (op === "start") toggleSettings(false); pomoOp(op, true); }
       else if (d.type === "agywe:sfx-test") sfxPlay(String(d.name || "done"), { test: true, kind: String(d.kind || "") });
       else if (d.type === "agywe:idle-test") { toggleSettings(false); const a = String(d.act || ""); setTimeout(() => idleTest(a), 350); }
+      else if (d.type === "agywe:save-failed") petSay(String(d.what || "设置").slice(0, 16) + "没保存上，已经恢复成实际生效的设置", 3600, "info");
       else if (d.type === "agywe:failed") { ready = false; lastErr = d.error || "failed"; applyCfg(cfg); diag("wall-failed"); splashWall(); }
     });
 

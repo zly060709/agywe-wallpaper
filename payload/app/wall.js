@@ -4,7 +4,7 @@
   const W = window.WebWallGL;
   const stage = document.getElementById("stage");
   const dim = document.getElementById("dim");
-  const parentOrigin = (location.ancestorOrigins && location.ancestorOrigins[0]) || "*";
+  const link = window.agyweParent;   // v0.11.2：和宿主之间的消息通道（parent-link.js）
   const bc = "BroadcastChannel" in window ? new BroadcastChannel("agywe") : null;
 
   let cfg = null;
@@ -61,7 +61,7 @@
   let remountT = 0;
   let loadSeq = 0;
 
-  const toParent = (msg) => { try { parent.postMessage(msg, parentOrigin); } catch { } };
+  const toParent = (msg) => link.post(msg);
   const api = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store" }); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); };
   const keyOf = (ref) => ref ? ref.kind + ":" + ref.id : "";
 
@@ -579,7 +579,15 @@
   async function putCfg(patch) {
     const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch) });
     if (!r.ok) throw new Error("保存失败 " + r.status);
-    return r.json();
+    const c = await r.json();
+    if (!c || typeof c !== "object" || Array.isArray(c) || c.error) throw new Error("保存失败：" + String((c && c.error) || "返回的不是配置"));
+    return c;
+  }
+  // v0.11.2：从宿主发来的保存请求失败时，告诉宿主，并把实际生效的配置发回去（不然界面上显示改了、其实没存）
+  function saveFailed(what, err) {
+    try { console.warn("[agywe] 保存失败：" + what, err); } catch { }
+    toParent({ type: "agywe:save-failed", what });
+    reloadConfig().then(() => toParent({ type: "agywe:config", config: publicCfg() })).catch(() => { });
   }
   let actBusy = false;
   async function doAct(action) {
@@ -623,12 +631,15 @@
         try { bc && bc.postMessage({ type: "config" }); } catch { }
         toParent({ type: "agywe:paused", paused: !!cfg.paused });
       }
-    } catch (e) { console.warn("[agywe] 快捷操作失败", action, e); }
+    } catch (e) {
+      console.warn("[agywe] 快捷操作失败", action, e);
+      toParent({ type: "agywe:switched", error: "没弄成，设置没保存上，稍后再试一次" });   // v0.11.2：以前失败了什么提示都没有
+    }
     finally { actBusy = false; }
   }
 
   window.addEventListener("message", (e) => {
-    if (parentOrigin !== "*" && e.origin !== parentOrigin) return;
+    if (!link.isFromParent(e)) return;
     const d = e.data || {};
     if (d.type === "agywe:pointer") { try { cur && cur.inst && cur.inst.pushPointer(d.u, d.v, d.buttons | 0); } catch { } pushParallax(Number(d.u) || 0.5, Number(d.v) || 0.5); }
     else if (d.type === "agywe:pointer-leave") { try { cur && cur.inst && cur.inst.pointerLeave(); } catch { } pushParallax(0.5, 0.5); }
@@ -662,24 +673,22 @@
       // v0.9 待办 / 便签
       if (Array.isArray(p.todos)) body.todos = p.todos.filter((x) => x && typeof x === "object").slice(0, 50).map((x) => ({ id: String(x.id || "").slice(0, 16) || Math.random().toString(16).slice(2, 10), text: String(x.text || "").slice(0, 200), done: !!x.done, at: Number(x.at) || Date.now() }));
       if (typeof p.note === "string") body.note = p.note.slice(0, 5000);
-      if (Object.keys(body).length) putCfg(body).then((c) => { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } }).catch((err) => console.warn("[agywe] 保存失败", err));
+      if (Object.keys(body).length) putCfg(body).then((c) => { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } }).catch((err) => saveFailed("小组件", err));
     }
     else if (d.type === "agywe:save-pet-url") {
       // 在界面上点选的桌宠图片
       const u = String(d.url || "");
       if (!/^(https?:|data:image\/|blob:|file:|agywe:)/i.test(u) || u.length > 3 * 1024 * 1024) return;
-      fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify({ pet: { image: "url:" + u, stamp: Date.now() } }) })
-        .then((r) => r.ok ? r.json() : null)
-        .then((c) => { if (c) { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } } })
-        .catch((e) => console.warn("[agywe] 保存桌宠图片失败", e));
+      putCfg({ pet: { image: "url:" + u, stamp: Date.now() } })
+        .then((c) => { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } })
+        .catch((e) => saveFailed("桌宠图片", e));
     }
     else if (d.type === "agywe:save-glass") {
       // 页面里点选毛玻璃区域后，由这里带令牌保存
       const body = { glassForce: Array.isArray(d.glassForce) ? d.glassForce.map(String).slice(0, 80) : [], glassExclude: Array.isArray(d.glassExclude) ? d.glassExclude.map(String).slice(0, 80) : [] };
-      fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(body) })
-        .then((r) => r.ok ? r.json() : null)
-        .then((c) => { if (c) { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } } })
-        .catch((e) => console.warn("[agywe] 保存毛玻璃点选失败", e));
+      putCfg(body)
+        .then((c) => { cfg = c; toParent({ type: "agywe:config", config: publicCfg() }); try { bc && bc.postMessage({ type: "config" }); } catch { } })
+        .catch((e) => saveFailed("毛玻璃点选", e));
     }
   });
   document.addEventListener("visibilitychange", () => { if (cfg) applyPause(); });

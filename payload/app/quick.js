@@ -3,7 +3,7 @@
 (function () {
   const TOKEN = document.querySelector('meta[name="agywe-token"]').content;
   const bc = "BroadcastChannel" in window ? new BroadcastChannel("agywe") : null;
-  const parentOrigin = (location.ancestorOrigins && location.ancestorOrigins[0]) || "*";
+  const link = window.agyweParent;   // v0.11.2：和宿主之间的消息通道（parent-link.js）
   const $ = (s) => document.querySelector(s);
   const strip = $("#strip"), q = $("#q");
   const TYPE = { scene: "场景", video: "视频", web: "网页", image: "图片" };
@@ -11,13 +11,22 @@
   let cfg = null, lib = { items: [] }, view = "all", list = [], sel = 0, effKey = "", busy = false;
   const keyOf = (it) => it.kind + ":" + it.id;
   const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store" }); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); };
+  // v0.11.2：保存失败不再悄悄吞掉：返回 false，并让挂件说一声
   async function put(patch) {
-    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch) });
-    if (r.ok) cfg = await r.json();
+    let c = null;
+    try {
+      const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch) });
+      if (r.ok) c = await r.json();
+    } catch (e) { try { console.warn("[agywe] 保存失败", e); } catch { } }
+    if (!c || typeof c !== "object" || Array.isArray(c) || c.error) {
+      link.post({ type: "agywe:switched", error: "没保存上，稍后再试一次" });
+      return false;
+    }
+    cfg = c;
     try { bc && bc.postMessage({ type: "config" }); } catch { }
-    return r.ok;
+    return true;
   }
-  const close = () => parent.postMessage({ type: "agywe:close-quick" }, parentOrigin);
+  const close = () => link.post({ type: "agywe:close-quick" });
   function thumb(it) {
     if (it.kind === "custom") return it.type === "image" ? "/custom/" + it.id : "";
     return it.preview ? "/we/" + it.id + "/" + String(it.preview).split("/").map(encodeURIComponent).join("/") : "";
@@ -84,7 +93,7 @@
     try {
       if (await put(patch)) {
         effKey = keyOf(it);
-        parent.postMessage({ type: "agywe:switched", title: it.title, n: i + 1, total: list.length }, parentOrigin);
+        link.post({ type: "agywe:switched", title: it.title, n: i + 1, total: list.length });
       }
     } finally { busy = false; }
     if (keep) render(keyOf(it)); else setTimeout(close, 90);

@@ -4,7 +4,7 @@
 > **非官方插件，与 Google、Antigravity 团队、Wallpaper Engine 均无关联。**
 > 它会改动 Antigravity 安装目录里的 `resources\app.asar`，可能违反 Antigravity 的使用条款（见下面的[账号风险](#账号风险装之前请看)）；Antigravity 更新后也可能失效。安装前会自动备份原版程序包，随时可以用 `uninstall.cmd` 还原。使用风险自负。
 
-当前版本：**v0.11.1** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+当前版本：**v0.11.2** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 
 把本机 Wallpaper Engine 的壁纸铺到 **Antigravity 桌面 App**（2.x Agent 版）界面后面。
 仿照 dsh-wallpaper-engine 的思路实现，场景壁纸用 WebWallGL（MIT）实时渲染。
