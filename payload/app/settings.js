@@ -47,6 +47,7 @@
     if (b.dataset.tab === "avatar") renderAvatars();
     if (b.dataset.tab === "switch") renderSwitch();
     if (b.dataset.tab === "splash") renderSplash();
+    if (b.dataset.tab === "widgets") renderUsageStats();
   });
 
   // ---------------- 通用控件绑定 ----------------
@@ -82,6 +83,7 @@
   }
   function afterChange(k) {
     if (k.startsWith("pet.")) renderPetPreview();
+    if (k.startsWith("buddy.")) renderBuddy();
     if (k.startsWith("avatar")) renderAvatars();
     if (k.startsWith("splash.")) renderSplash();
   }
@@ -441,11 +443,91 @@
     const im = String(pet.image || "");
     $("#petpath").textContent = !im ? "（默认角色）" : im.startsWith("url:") ? "（从界面上点选的图片）" : /[\\/]agywe[\\/]assets[\\/]/i.test(im) ? "（从界面上点选的图片，已存成文件）" : im;
     renderPetPreview();
+    renderBuddy();
     get("info").then((info) => {
       const list = (info && info.petApps) || [];
       $("#petfound").textContent = list.length ? "发现正在运行的桌宠程序：" + list.map((x) => x.name + "（" + x.dir + "）").join("；") + "。点「选择图片…」会直接打开它的文件夹。" : "";
     }).catch(() => { });
   }
+  // ---------------- v0.11 猫猫桌宠素材 ----------------
+  let buddyMsgUntil = 0;
+  const toastMsg = (t) => { const el = $("#buddySrc"); if (el) { el.textContent = t; buddyMsgUntil = Date.now() + 3500; setTimeout(renderBuddy, 3600); } };
+  const BUDDY_SRC = { custom: "自己选的文件夹", imported: "插件文件夹里的副本", catgirl: "猫猫插件自带的", none: "" };
+  async function renderBuddy() {
+    const el = $("#buddySrc"); if (!el || Date.now() < buddyMsgUntil) return;
+    let i = null; try { i = await get("buddy-info"); } catch { }
+    if (!i) { el.textContent = ""; return; }
+    el.textContent = i.kind === "none" ? "⚠ 没找到素材：装上猫猫插件，或者选一个素材文件夹" : "正在用：" + BUDDY_SRC[i.kind] + "（" + i.clips.length + " 个动作）" + " · " + i.dir;
+    el.title = i.clips.join("、");
+    $("#buddyImport").disabled = !i.catgirl;
+    $("#buddyImport").textContent = i.imported ? "重新从猫猫插件复制" : "从猫猫插件复制一份";
+    $("#buddyImport").title = i.catgirl ? "复制到 " + "%APPDATA%\\Antigravity\\agywe\\buddy（约 95 MB），之后删掉猫猫插件也能用" : "没装猫猫插件";
+  }
+  $("#buddyImport").onclick = async () => {
+    const b = $("#buddyImport"); b.disabled = true; const t = b.textContent; b.textContent = "复制中…";
+    try { const r = await post("buddy-import"); if (r && r.ok) { if (r.config) { cfg = r.config; notify("config"); bindControls(); } toastMsg("复制好了：" + r.n + " 个动作，" + Math.round(r.bytes / 1048576) + " MB"); } else toastMsg((r && r.error) || "没复制成功"); }
+    finally { b.textContent = t; b.disabled = false; renderBuddy(); }
+  };
+  $("#buddyPick").onclick = async () => { const r = await post("buddy-pick"); if (r && r.ok) { cfg = r.config; notify("config"); bindControls(); } else if (r && r.error) toastMsg(r.error); renderBuddy(); };
+  $("#buddyReset").onclick = async () => { const r = await post("buddy-reset"); if (r && r.ok) { cfg = r.config; notify("config"); bindControls(); } renderBuddy(); };
+
+  // ---------------- v0.11 用量统计 ----------------
+  const fmtTok = (n) => { n = Number(n) || 0; const a = Math.abs(n), f = (x, d) => x.toFixed(d).replace(/\.0+$/, ""); return a >= 1e9 ? f(n / 1e9, 2) + "B" : a >= 1e6 ? f(n / 1e6, a >= 1e8 ? 0 : a >= 1e7 ? 1 : 2) + "M" : a >= 1e3 ? f(n / 1e3, 1) + "K" : String(Math.round(n)); };
+  const hitOf = (o) => (o.in + o.cache) ? Math.round(1000 * o.cache / (o.in + o.cache)) / 10 + "%" : "--";
+  let ustatsBusy = false;
+  async function renderUsageStats() {
+    const box = $("#ustats"); if (!box || ustatsBusy) return;
+    ustatsBusy = true;
+    const days = Number($("#udays").value) || 14;
+    if (!box.firstChild) box.textContent = "统计中…";
+    let s = null; try { s = await get("usage-summary?days=" + days); } catch { } finally { ustatsBusy = false; }
+    box.textContent = "";
+    if (!s || !s.ok) { box.textContent = s && s.reason === "nosqlite" ? "这个版本的 Antigravity 读不了对话记录（" + (s.error || "") + "），用量统计用不了。" : "读不到用量记录。"; return; }
+    const tot = (o) => o.in + o.cache + o.out;
+    const today = document.createElement("div"); today.className = "today";
+    for (const [label, val, tip] of [
+      ["今天 token", fmtTok(tot(s.today)), "输入 " + fmtTok(s.today.in) + " · 缓存命中 " + fmtTok(s.today.cache) + " · 输出 " + fmtTok(s.today.out)],
+      ["今天命中", hitOf(s.today), "缓存命中 ÷（输入 + 缓存命中）"],
+      ["今天调用", String(s.today.calls), s.today.convs + " 个对话"],
+      ["本月 token", fmtTok(tot(s.month)), "输入 " + fmtTok(s.month.in) + " · 缓存命中 " + fmtTok(s.month.cache) + " · 输出 " + fmtTok(s.month.out) + " · 思考 " + fmtTok(s.month.think)],
+      ["本月命中", hitOf(s.month), ""],
+      ["本月调用", String(s.month.calls), s.month.convs + " 个对话"]]) {
+      const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = val; if (tip) d.title = tip; d.append(b, document.createTextNode(label)); today.appendChild(d);
+    }
+    box.appendChild(today);
+    const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = "最近 " + days + " 天 · 每天的 token（浅色是缓存命中的部分）"; box.appendChild(cap);
+    const max = Math.max(1, ...s.days.map(tot));
+    const week = document.createElement("div"); week.className = "week ubars";
+    s.days.forEach((x, i) => {
+      const bar = document.createElement("div"); bar.className = "bar" + (i === s.days.length - 1 ? " today" : "");
+      bar.title = x.day + "：" + fmtTok(tot(x)) + "（输入 " + fmtTok(x.in) + "，缓存命中 " + fmtTok(x.cache) + "，输出 " + fmtTok(x.out) + "），" + x.calls + " 次调用，命中率 " + hitOf(x);
+      const v = document.createElement("span"); v.textContent = x.calls ? fmtTok(tot(x)) : "";
+      const st = document.createElement("div"); st.className = "stk";
+      const H = 60 * tot(x) / max;
+      const ic = document.createElement("i"); ic.className = "c"; ic.style.height = (tot(x) ? H * x.cache / tot(x) : 0).toFixed(1) + "px";
+      const io = document.createElement("i"); io.style.height = (tot(x) ? Math.max(2, H * (x.in + x.out) / tot(x)) : 2).toFixed(1) + "px";
+      st.append(ic, io);
+      const lb = document.createElement("span"); lb.textContent = i === s.days.length - 1 ? "今天" : x.day.slice(5).replace("-", "/");
+      bar.append(v, st, lb); week.appendChild(bar);
+    });
+    box.appendChild(week);
+    if (s.models.length) {
+      const cap2 = document.createElement("div"); cap2.className = "cap"; cap2.textContent = "按模型（最近 " + days + " 天）"; box.appendChild(cap2);
+      const tb = document.createElement("table"); tb.className = "umodels";
+      const hr = document.createElement("tr"); for (const h of ["模型", "调用", "输入", "缓存命中", "输出", "命中率"]) { const th = document.createElement("th"); th.textContent = h; hr.appendChild(th); } tb.appendChild(hr);
+      for (const m of s.models) {
+        const tr = document.createElement("tr");
+        for (const v of [m.name, m.calls, fmtTok(m.in), fmtTok(m.cache), fmtTok(m.out), hitOf(m)]) { const td = document.createElement("td"); td.textContent = String(v); tr.appendChild(td); }
+        tb.appendChild(tr);
+      }
+      box.appendChild(tb);
+    }
+    const foot = document.createElement("div"); foot.className = "cap"; foot.textContent = "一共 " + s.convs + " 个对话记录 · 全部 " + fmtTok(tot(s.all)) + " token，命中率 " + hitOf(s.all) + " · 只在本机统计"; box.appendChild(foot);
+  }
+  $("#udays").value = "14";
+  $("#udays").onchange = renderUsageStats;
+  $("#urefresh").onclick = renderUsageStats;
+
   $("#petfromui").onclick = () => parent.postMessage({ type: "agywe:pick-pet" }, parentOrigin);
   $("#petpick").onclick = async () => { const c = await post("pick-pet"); if (c && c.pet) { cfg = c; notify("config"); renderPet(); } };
   $("#petreset").onclick = async () => { const c = await post("reset-pet"); if (c && c.pet) { cfg = c; notify("config"); renderPet(); } };

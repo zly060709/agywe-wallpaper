@@ -162,3 +162,18 @@ main.searching .row.hitrow > label:first-child { color: var(--acc); }
 .cdrow b { min-width: 90px; }
 .cdrow span { color: var(--muted); }
 .slot select { max-width: 150px; }
+
+/* v0.11 用量统计 */
+.stats .week.ubars { height: 108px; }
+.stats .ubars .bar { max-width: 40px; }
+.stats .ubars .bar > span:first-child { font-size: 10px; white-space: nowrap; }
+.stats .ubars .stk { width: 100%; display: flex; flex-direction: column-reverse; }
+.stats .ubars .stk i { display: block; width: 100%; border-radius: 0; background: var(--acc); opacity: .85; min-height: 0; }
+.stats .ubars .stk i.c { opacity: .35; border-radius: 0 0 1px 1px; }
+.stats .ubars .stk i:last-child { border-radius: 4px 4px 0 0; }
+.stats .ubars .bar.today .stk i { opacity: 1; }
+.stats .ubars .bar.today .stk i.c { opacity: .45; }
+.stats table.umodels { border-collapse: collapse; margin-top: 4px; font-size: 12px; width: 100%; max-width: 640px; }
+.stats table.umodels th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; border-bottom: 1px solid var(--line); }
+.stats table.umodels td { padding: 3px 8px 3px 0; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--line); }
+.stats table.umodels td:first-child { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

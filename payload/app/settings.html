@@ -117,13 +117,22 @@
       <div class="row"><label>弹窗不透明度</label><input type="range" min="0.1" max="1" step="0.01" data-k="dialogOpacity"><output></output><small>设置页这类占了大半个窗口的弹窗</small></div>
       <div class="row"><label>弹窗模糊</label><input type="range" min="0" max="40" step="1" data-k="dialogBlur"><output></output><small>px</small></div>
       <div class="row"><label>输入框外圈</label><input type="range" min="0" max="0.6" step="0.01" data-k="composerRing"><output></output><small>输入框四周那条细线的深浅，0 = 不要线</small></div>
-      <div class="row"><label>允许其他插件挂进界面</label><label class="switch"><input type="checkbox" data-k="cdpForPlugins"><span></span></label><small>猫猫桌宠这类插件要靠它显示出来（打开一个只有本机能连的调试端口）。改了要重启 Antigravity 才生效</small></div>
+      <div class="row"><label>允许其他插件挂进界面</label><label class="switch"><input type="checkbox" data-k="cdpForPlugins"><span></span></label><small>新装默认关。猫猫桌宠这类插件要靠它显示出来：打开后 Antigravity 会开一个只有本机能连的调试端口，本机上的其他程序也能通过它控制 Antigravity，不用这类插件就别开。改了要重启 Antigravity 才生效</small></div>
       <div class="row"><label>界面汉化</label><label class="switch"><input type="checkbox" data-k="zh"><span></span></label><small>把 Antigravity 界面上的英文按钮、菜单、提示换成中文。插件自带，不改程序文件；对话内容、代码、输入框里的字不会动</small></div>
       <div class="row"><label>补充翻译</label><textarea data-k="zhExtra" rows="4" class="wide" style="flex:1;min-width:260px;resize:vertical;font:inherit" placeholder="还有没翻到的，每行写一条：英文 = 中文&#10;例如：Build with Google = 用 Google 构建"></textarea></div>
     </section>
 
     <section id="tab-pet">
       <div class="petpreview"><div class="petcord"></div><div id="petimg" class="petimg"></div></div>
+      <h4>猫猫桌宠（动画）</h4>
+      <div class="row"><label>显示桌宠</label><label class="switch"><input type="checkbox" data-k="buddy.on"><span></span></label><small>站在窗口下边的动画小人，跟着 agent 换动作：干活时认真看、完成了跳一下、要你确认时着急、出错了会摔倒。拖动换位置，单击摸摸它，双击展开用量卡片，右键有菜单</small></div>
+      <div class="row"><label>桌宠大小</label><input type="range" min="60" max="400" step="2" data-k="buddy.size"><output></output><small>px（宽）</small></div>
+      <div class="row"><label>代替挂绳挂件</label><label class="switch"><input type="checkbox" data-k="buddy.replaceDoll"><span></span></label><small>默认关，两个一起显示。打开后顶上的挂绳挂件先藏起来，完成 / 出错提示、番茄钟、喝水提醒都改由桌宠说；设置用快捷键或者右键桌宠打开</small></div>
+      <div class="row"><label>闲着时的小动作</label><label class="switch"><input type="checkbox" data-k="buddy.idle"><span></span></label><small>没事干的时候偶尔东张西望、比个心</small></div>
+      <div class="row"><label>打开时打招呼</label><label class="switch"><input type="checkbox" data-k="buddy.greet"><span></span></label></div>
+      <div class="row wrap"><label>动作素材</label><button id="buddyImport" class="primary">从猫猫插件复制一份</button><button id="buddyPick">选择文件夹…</button><button id="buddyReset">自动查找</button><small id="buddySrc" class="muted"></small></div>
+      <p class="muted indent">插件本身不带素材，只读你电脑上已有的：默认用「星星猫娘」插件（antigravity-catgirl-pet）自带的那套。点「复制一份」会复制到插件自己的文件夹，之后把原插件删掉也能用。<br>想换成别的角色：准备一个文件夹，每个动作一段带透明背景的 webm，放成 <code>idle/motion.webm</code> 或 <code>idle.webm</code>。至少要有 idle；能认的动作：idle、look、working、reviewing、waiting、jump、wave、fail、move-left、move-right、emotion-cheerful、emotion-shy、emotion-starry、emotion-confused、emotion-frightened、emotion-serious，缺哪个就用相近的代替。</p>
+      <h4>挂绳挂件</h4>
       <div class="row"><label>显示挂件</label><label class="switch"><input type="checkbox" data-k="showButton"><span></span></label><small>隐藏后用 Ctrl+Alt+W 打开设置</small></div>
       <div class="row"><label>角色图片</label><button id="petpick" class="primary">选择图片…</button><button id="petfromui">从界面上点选</button><button id="petreset">用默认角色</button><small id="petpath" class="muted"></small></div>
       <p class="muted indent">「选择图片…」：直接选桌宠的图片文件，GIF / APNG / WebP 动图会动起来，透明背景的 PNG 效果最好。<br>「从界面上点选」：桌宠是画在 Antigravity 窗口里面的话，点它一下就能直接拿来用。</p>
@@ -257,6 +266,11 @@
       <div class="row"><label>显示秒</label><label class="switch"><input type="checkbox" data-k="clock.seconds"><span></span></label></div>
       <div class="row"><label>显示日期</label><label class="switch"><input type="checkbox" data-k="clock.date"><span></span></label></div>
       <div class="row"><label>12 小时制</label><label class="switch"><input type="checkbox" data-k="clock.h12"><span></span></label><small>显示成「下午 3:05」</small></div>
+      <h4>用量（上下文 / 缓存命中 / 额度）</h4>
+      <div class="row"><label>用量卡片</label><select data-k="usage.mode"><option value="pill">小胶囊</option><option value="card">卡片</option><option value="off">关</option></select><small>和播放器、番茄钟叠在一起。胶囊：上下文占了多少、缓存命中率、当前模型额度还剩多少；双击展开成卡片，多出每一轮的输入 / 输出 / 思考 token、生成速度、首字延迟、这个对话和今天、本月的总数。双击桌宠也能展开</small></div>
+      <div class="row"><label>额度</label><select data-k="usage.quota"><option value="auto">每 5 分钟查一次（展开卡片时最多每分钟一次）</option><option value="open">只在展开卡片时查</option><option value="off">不查，不显示额度</option></select><small>上下文和 token 数是读本机的对话记录（<code>.gemini\antigravity\conversations</code>），不联网。额度要问 Google：用的是 Antigravity 自己界面上查额度的同一个函数，跟你打开模型选择看额度一样</small></div>
+      <div id="ustats" class="stats"></div>
+      <div class="row wrap"><label>统计范围</label><select id="udays"><option value="7">最近 7 天</option><option value="14">最近 14 天</option><option value="30">最近 30 天</option></select><button id="urefresh">刷新</button><small class="muted">第一次打开要把所有对话过一遍，稍等一两秒</small></div>
       <h4>迷你播放器</h4>
       <div class="row"><label>迷你播放器</label><select data-k="miniPlayer"><option value="card">卡片</option><option value="pill">小胶囊</option><option value="off">关</option></select><small>显示正在放的歌，带上一首 / 暂停 / 下一首；双击卡片在两种样式之间切换</small></div>
       <div class="row"><label>没放歌时隐藏</label><label class="switch"><input type="checkbox" data-k="miniHideIdle"><span></span></label></div>
