@@ -4,7 +4,7 @@
 > **非官方插件，与 Google、Antigravity 团队、Wallpaper Engine 均无关联。**
 > 它会改动 Antigravity 安装目录里的 `resources\app.asar`，可能违反 Antigravity 的使用条款（见下面的[账号风险](#账号风险装之前请看)）；Antigravity 更新后也可能失效。安装前会自动备份原版程序包，随时可以用 `uninstall.cmd` 还原。使用风险自负。
 
-当前版本：**v0.11.2** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+当前版本：**v0.12.0** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 
 把本机 Wallpaper Engine 的壁纸铺到 **Antigravity 桌面 App**（2.x Agent 版）界面后面。
 仿照 dsh-wallpaper-engine 的思路实现，场景壁纸用 WebWallGL（MIT）实时渲染。
@@ -80,7 +80,7 @@ Google 的服务条款字面上不允许修改它的软件，装这个插件严�
 - **输入框外圈**：原来那圈深色外框换成一条细的半透明线，深浅可调。「外观」页。
 - **允许其他插件挂进界面**：猫猫桌宠这类插件要通过 Antigravity 的本机调试端口把自己挂进界面。打开这个开关后，插件在启动时直接打开这个端口（只监听 127.0.0.1、端口随机），不用再改快捷方式参数。新装默认关。「外观」页。
 - **用量卡片**：上下文占了多少、缓存命中率、生成速度、首字延迟，每一轮的输入 / 输出 / 思考 token，这个对话和今天、本月的总数，以及当前模型额度还剩多少、多久重置。平时是一个小胶囊，双击展开。「小组件」页还有按天、按模型的统计。
-- **内置桌宠**：站在窗口下边的动画小人，跟着 agent 换动作（干活、完成、要你确认、出错），拖动换位置，单击摸摸，双击展开用量卡片。不用调试端口、不用 Python。插件不带动画素材，只读你电脑上已有的（比如「星星猫娘」插件 antigravity-catgirl-pet 自带的那套），也可以换成自己准备的文件夹。「挂件」页。
+- **内置桌宠**：站在窗口下边的动画小人，跟着 agent 换动作（干活、完成、要你确认、出错），拖动换位置，单击摸摸，双击展开用量卡片。不用调试端口、不用 Python。自带一位原创角色「紫发 JK 猫娘」的 18 段动作（在插件文件夹的 `buddy\` 里，解压后就能用），也可以换成自己准备的文件夹，或者用你电脑上已有的素材（比如「星星猫娘」插件 antigravity-catgirl-pet 自带的那套）。「挂件」页。
 
 ## 工作原理
 
@@ -113,12 +113,13 @@ Google 的服务条款字面上不允许修改它的软件，装这个插件严�
 |---|---|---|---|
 | 本项目（`install.cjs`、`autofix.ps1`、`*.cmd`、`test/`、`payload/` 下除 WebWallGL 以外的文件） | 本仓库 | [MIT](LICENSE) | 独立编写 |
 | `payload/app/webwallgl.global.min.js` | [WebWallGL](https://github.com/oneincase/webwallgl)，作者 oneincase | MIT | WebWallGL 的构建文件，随本项目一起分发；许可证见 `payload/app/LICENSE.webwallgl.txt` |
+| `buddy/` 下的桌宠动画 | 本仓库 | [MIT](LICENSE) | 原创角色「紫发 JK 猫娘」，本项目自制，不来自任何第三方桌宠包 |
 | 功能思路 | [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine)，作者 elysia395 | MIT | 只参考了功能和交互思路，没有使用它的代码 |
 
 **本仓库不包含：**
 
 - **Antigravity 的任何代码或文件。** 安装器在你自己的电脑上读取 Antigravity 的程序包，打补丁后写回；原版会先备份，卸载时原样还原。
 - **任何 Wallpaper Engine 壁纸或创意工坊素材。** 插件只读取你电脑上已经订阅的壁纸并在本机播放，版权归各自作者。
-- **任何桌宠动画、头像或挂件图片。** 内置桌宠只播放你电脑上已有的素材（比如 antigravity-catgirl-pet 插件自带的，版权归原作者）；「复制一份」也只是在你本机复制，会带上原插件的许可证。 默认角色是代码画的矢量图，其余都由你自己选择本机文件。
+- **任何第三方桌宠、头像或挂件图片的素材。** 内置桌宠自带的动画（`buddy/`）是本项目自己做的；它也可以读你电脑上已有的素材（比如 antigravity-catgirl-pet 插件自带的，版权归原作者），「复制一份」也只是在你本机复制，会带上原插件的许可证。挂件玩偶的默认角色是代码画的矢量图，其余都由你自己选择本机文件。
 
 Antigravity 是 Google 的产品，Wallpaper Engine 是 Wallpaper Engine Team 的产品，本项目与它们都没有关联。文中提到这两个名字，只是为了说明插件用在哪里、配合什么使用。

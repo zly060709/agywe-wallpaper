@@ -488,15 +488,15 @@
       $("#petfound").textContent = list.length ? "发现正在运行的桌宠程序：" + list.map((x) => x.name + "（" + x.dir + "）").join("；") + "。点「选择图片…」会直接打开它的文件夹。" : "";
     }).catch(() => { });
   }
-  // ---------------- v0.11 猫猫桌宠素材 ----------------
+  // ---------------- v0.11 猫猫桌宠素材（v0.12.0 起插件自带一套） ----------------
   let buddyMsgUntil = 0;
   const toastMsg = (t) => { const el = $("#buddySrc"); if (el) { el.textContent = t; buddyMsgUntil = Date.now() + 3500; setTimeout(renderBuddy, 3600); } };
-  const BUDDY_SRC = { custom: "自己选的文件夹", imported: "配置文件夹里的副本", local: "插件文件夹里的 buddy", catgirl: "猫猫插件自带的", none: "" };
+  const BUDDY_SRC = { custom: "自己选的文件夹", imported: "复制到配置文件夹的那份", local: "插件文件夹里自带的", catgirl: "猫猫插件自带的", none: "" };
   async function renderBuddy() {
     const el = $("#buddySrc"); if (!el || Date.now() < buddyMsgUntil) return;
     let i = null; try { i = await get("buddy-info"); } catch { }
     if (!i) { el.textContent = ""; return; }
-    el.textContent = i.kind === "none" ? "⚠ 没找到素材：装上猫猫插件，或者选一个素材文件夹" : "正在用：" + BUDDY_SRC[i.kind] + "（" + i.clips.length + " 个动作）" + " · " + i.dir;
+    el.textContent = i.kind === "none" ? "⚠ 没找到素材：插件文件夹里自带的 buddy 文件夹不见了（重新解压一份），或者选一个素材文件夹" : "正在用：" + BUDDY_SRC[i.kind] + "（" + i.clips.length + " 个动作）" + " · " + i.dir;
     el.title = i.clips.join("、");
     $("#buddyImport").disabled = !i.catgirl;
     $("#buddyImport").textContent = i.imported ? "重新从猫猫插件复制" : "从猫猫插件复制一份";

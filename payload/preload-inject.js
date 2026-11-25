@@ -4101,7 +4101,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
 
     // =====================================================================
     // v0.11 猫猫桌宠：每个动作一段透明 webm，两个 <video> 交替，换动作不闪
-    //   动作素材只读本机（猫猫插件自带的 / 复制到 agywe\buddy 的 / 自己选的文件夹），插件本身不带
+    //   动作素材只读本机（自己选的文件夹 / 复制到 agywe\buddy 的 / 插件文件夹 buddy\ 里自带的（v0.12.0 原创角色）/ 猫猫插件自带的）
     // =====================================================================
     const BUDDY_POS = "agywe:buddy-pos";
     const buddy = { root: null, wrap: null, vids: [], cur: -1, clip: "", loop: false, then: null, oneShot: false, tok: 0, info: null, stamp: -1, drag: null, pos: null, bubble: null, sayT: 0, idleT: 0, lastAct: Date.now(), err: 0, greeted: false, applying: false, again: false, moveDir: 0 };

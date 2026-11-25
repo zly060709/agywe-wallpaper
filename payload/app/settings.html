@@ -125,13 +125,13 @@
     <section id="tab-pet">
       <div class="petpreview"><div class="petcord"></div><div id="petimg" class="petimg"></div></div>
       <h4>猫猫桌宠（动画）</h4>
-      <div class="row"><label>显示桌宠</label><label class="switch"><input type="checkbox" data-k="buddy.on"><span></span></label><small>站在窗口下边的动画小人，跟着 agent 换动作：干活时认真看、完成了跳一下、要你确认时着急、出错了会摔倒。拖动换位置，单击摸摸它，双击展开用量卡片，右键有菜单</small></div>
+      <div class="row"><label>显示桌宠</label><label class="switch"><input type="checkbox" data-k="buddy.on"><span></span></label><small>站在窗口下边的动画小人，跟着 agent 换动作：干活时低头忙、完成了开心跳一下、要你确认时凑过来抬头等、出错了垂头丧气再抱着胳膊生气。拖动换位置，单击摸摸它，双击展开用量卡片，右键有菜单</small></div>
       <div class="row"><label>桌宠大小</label><input type="range" min="60" max="400" step="2" data-k="buddy.size"><output></output><small>px（宽）</small></div>
       <div class="row"><label>代替挂绳挂件</label><label class="switch"><input type="checkbox" data-k="buddy.replaceDoll"><span></span></label><small>默认关，两个一起显示。打开后顶上的挂绳挂件先藏起来，完成 / 出错提示、番茄钟、喝水提醒都改由桌宠说；设置用快捷键或者右键桌宠打开</small></div>
-      <div class="row"><label>闲着时的小动作</label><label class="switch"><input type="checkbox" data-k="buddy.idle"><span></span></label><small>没事干的时候偶尔东张西望、比个心</small></div>
+      <div class="row"><label>闲着时的小动作</label><label class="switch"><input type="checkbox" data-k="buddy.idle"><span></span></label><small>没事干的时候偶尔东张西望、星星眼、害羞、打招呼</small></div>
       <div class="row"><label>打开时打招呼</label><label class="switch"><input type="checkbox" data-k="buddy.greet"><span></span></label></div>
       <div class="row wrap"><label>动作素材</label><button id="buddyImport" class="primary">从猫猫插件复制一份</button><button id="buddyPick">选择文件夹…</button><button id="buddyReset">自动查找</button><small id="buddySrc" class="muted"></small></div>
-      <p class="muted indent">插件本身不带素材，只读你电脑上已有的：默认用「星星猫娘」插件（antigravity-catgirl-pet）自带的那套。点「复制一份」会复制到插件自己的文件夹，之后把原插件删掉也能用。<br>想换成别的角色：准备一个文件夹，每个动作一段带透明背景的 webm，放成 <code>idle/motion.webm</code> 或 <code>idle.webm</code>。至少要有 idle；能认的动作：idle、look、working、reviewing、waiting、jump、wave、fail、move-left、move-right、emotion-cheerful、emotion-shy、emotion-starry、emotion-confused、emotion-frightened、emotion-serious，缺哪个就用相近的代替。</p>
+      <p class="muted indent">自带一位原创角色「紫发 JK 猫娘」，18 段动作在插件文件夹的 <code>buddy\</code> 里，解压后就能用。<br>想换成别的角色：准备一个文件夹，每个动作一段带透明背景的 webm，放成 <code>idle/motion.webm</code> 或 <code>idle.webm</code>。至少要有 idle；能认的动作：idle、look、working、reviewing、waiting、jump、wave、fail、move-left、move-right、emotion-cheerful、emotion-shy、emotion-starry、emotion-confused、emotion-frightened、emotion-serious，缺哪个就用相近的代替。<br>装过「星星猫娘」插件（antigravity-catgirl-pet）的：点「从猫猫插件复制一份」会把那套复制到插件自己的文件夹并优先用它，之后把原插件删掉也能用。</p>
       <h4>挂绳挂件</h4>
       <div class="row"><label>显示挂件</label><label class="switch"><input type="checkbox" data-k="showButton"><span></span></label><small>隐藏后用 Ctrl+Alt+W 打开设置</small></div>
       <div class="row"><label>角色图片</label><button id="petpick" class="primary">选择图片…</button><button id="petfromui">从界面上点选</button><button id="petreset">用默认角色</button><small id="petpath" class="muted"></small></div>

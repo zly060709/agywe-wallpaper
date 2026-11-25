@@ -21,7 +21,7 @@ _removed_plugins/
 _publish/
 _ui/
 remove-old-plugins.*
-# 桌宠素材（本机复制的，不上传）
-buddy/
+# 桌宠素材：v0.12.0 起内置角色随仓库发布（buddy/ 下 18 段透明 webm）
+# 想临时换素材请放到 %APPDATA%\Antigravity\agywe\buddy，不要改这里
 # 冒烟测试的临时文件
 test/.tmp-*/

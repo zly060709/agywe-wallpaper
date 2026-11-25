@@ -57,8 +57,8 @@ diagWrite(`===== agywe v${AGYWE_VERSION} hook loaded, electron ${process.version
 
 // ---------------------------------------------------------------------------
 // v0.11 内置猫猫桌宠的素材：每个动作一段带透明通道的 webm（<动作>/motion.webm 或 <动作>.webm）
-// 找的顺序：设置里选的文件夹 → 复制到 agywe\buddy 的 → 猫猫插件（antigravity-catgirl-pet）自带的
-// 仓库里不放素材，只读你电脑上已经有的
+// 找的顺序：设置里选的文件夹 → 复制到 agywe\buddy 的 → 插件文件夹里自带的 buddy\（v0.12.0，原创角色）→ 猫猫插件（antigravity-catgirl-pet）自带的
+// 仓库自带的只有 buddy\ 里那套原创动作；猫猫插件的素材只读你电脑上已经有的，不随仓库分发
 // ---------------------------------------------------------------------------
 function catgirlAssets() {
   try {
@@ -75,6 +75,14 @@ function buddyLocal() {
   } catch { return ""; }
 }
 function buddyImported() { try { const d = path.join(app.getPath("userData"), "agywe", "buddy"); return fs.existsSync(d) ? d : ""; } catch { return ""; } }
+// v0.12.0：插件文件夹里自带的 buddy\（%LOCALAPPDATA%\Programs\agywe-wallpaper\buddy），仓库里那套原创角色的动作
+function buddyLocal() {
+  try {
+    const la = process.env.LOCALAPPDATA;
+    const d = la ? path.join(la, "Programs", "agywe-wallpaper", "buddy") : "";
+    return d && fs.existsSync(d) ? d : "";
+  } catch { return ""; }
+}
 function buddyClipFile(dir, clip) {
   for (const f of [path.join(dir, clip, "motion.webm"), path.join(dir, clip + ".webm")]) { try { if (fs.statSync(f).isFile()) return f; } catch { } }
   return "";
@@ -239,8 +247,10 @@ const DEFAULTS = {
   font: "",
   // 挂件玩偶
   pet: { image: null, size: 64, cord: 36, stamp: 0 },
-  // v0.11 猫猫桌宠（动画素材读本机：猫猫插件自带的，或复制到 agywe\\buddy 的，或自己选的文件夹）
-  buddy: { on: false, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0 },
+  // 内置桌宠（v0.11 猫猫桌宠；v0.12.0 起插件自带原创角色的动作）。素材：自己选的文件夹 → 复制到 agywe\\buddy 的 → 插件文件夹里自带的 buddy\ → 猫猫插件自带的）
+  // 新装默认显示；从 v0.11 及以前升级的看下面 migBuddy12
+  buddy: { on: true, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0 },
+  migBuddy12: false,           // v0.12.0：没装过猫猫插件的，升级时打开内置桌宠一次（插件现在自带角色）
   migBuddy: false,              // v0.11：装过猫猫插件的，升级时打开内置桌宠一次，并关掉调试端口（不用再让原插件挂进来）
   // v0.11 用量卡片：上下文 / 缓存命中 / 速度 / 额度
   usage: { mode: "pill", quota: "auto" },   // mode: card | pill | off；quota: auto 每 5 分钟 + 展开时 | open 只在展开时 | off 不查
@@ -373,6 +383,16 @@ function loadConfig() {
       config.buddy = { ...config.buddy, on: true };
       config.cdpForPlugins = false;
       diagWrite("[buddy] v0.11：发现猫猫插件的素材，打开内置桌宠，关掉调试端口（原插件不会再挂进来，下次启动生效）");
+    }
+    try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); } catch (e) { warn("config migrate failed", e); }
+  }
+  // v0.12.0：插件自带原创角色的动作。以前没见过桌宠的（没装猫猫插件）升级后自动打开一次；
+  // 装过猫猫插件的在 v0.11 已经选过开关，保持不动
+  if (!saved.migBuddy12 && Object.keys(saved).length > 0) {
+    config.migBuddy12 = true;
+    if (!catgirlAssets() && !config.buddy.on && buddyLocal()) {
+      config.buddy = { ...config.buddy, on: true };
+      diagWrite("[buddy] v0.12.0：插件自带角色，打开内置桌宠（不想要就在「挂件」页关掉「显示桌宠」）");
     }
     try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); } catch (e) { warn("config migrate failed", e); }
   }
