@@ -9,25 +9,64 @@
   let lib = { items: [], paths: {} };
 
   const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store" }); return r.json(); };
+  // v0.11.1：请求失败时不再把错误内容当结果用——返回 { ok:false, error, status }，调用方按字段判断
   const post = async (p, body, method = "POST") => {
     const r = await fetch("/api/" + p, { method, headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(body || {}) });
-    return r.json();
+    let data = null;
+    try { data = await r.json(); } catch { }
+    if (!r.ok) return { ok: false, status: r.status, error: (data && data.error) || ("HTTP " + r.status) };
+    return data;
   };
   const notify = (type) => { try { bc && bc.postMessage({ type }); } catch { } };
 
-  let saveTimer = null, pendingPatch = {};
-  function save(patch, now) {
-    Object.assign(pendingPatch, patch);
-    clearTimeout(saveTimer);
-    const run = async () => {
-      const p = pendingPatch; pendingPatch = {};
-      cfg = await post("config", p, "PUT");
-      notify("config");
-    };
-    if (now) return run(); else saveTimer = setTimeout(run, 200);
-  }
+  // ---- v0.11.1 保存配置：排队发送、失败会提示并按磁盘上的配置刷新界面（详见 savequeue.js）----
+  const sendConfig = async (patch) => {
+    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch || {}) });
+    let data = null, text = "";
+    try { text = await r.text(); data = JSON.parse(text); } catch { }
+    if (!r.ok || !data || typeof data !== "object" || Array.isArray(data) || data.error) {
+      const e = new Error((data && data.error) || (text && text.slice(0, 120)) || ("HTTP " + r.status));
+      e.status = r.status;
+      throw e;
+    }
+    notify("config");
+    return data;
+  };
+  let saveNoteTimer = null;
+  const saveNote = (msg) => {
+    let el = document.getElementById("agywe-save-note");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "agywe-save-note";
+      el.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;max-width:80%;padding:8px 14px;border-radius:8px;background:rgba(160,40,40,.92);color:#fff;font-size:13px;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:none";
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = "block";
+    clearTimeout(saveNoteTimer);
+    saveNoteTimer = setTimeout(() => { el.style.display = "none"; }, 6000);
+  };
+  const resyncConfig = async () => {
+    try {
+      const c = await get("config");
+      if (c && typeof c === "object" && !c.error) { cfg = c; try { bindControls(); } catch { } }
+    } catch { }
+  };
+  const saveQ = window.agyweSaveQueue.createSaveQueue({
+    send: sendConfig,
+    onSaved: (c) => { cfg = c; },
+    onError: (err, patch, idle) => {
+      try { console.warn("[agywe] 设置保存失败", err, patch); } catch { }
+      saveNote("设置没保存上（" + String(err && err.message || err).slice(0, 80) + "），" + (idle ? "已按实际生效的配置刷新界面。" : "后面的修改会继续保存。"));
+      if (idle) resyncConfig();
+    }
+  });
+  function save(patch, now) { return saveQ.save(patch, now); }
+  // 关页面前把还在防抖里的修改发出去
+  const flushSave = () => Promise.race([saveQ.flush(), new Promise((r) => setTimeout(r, 1500))]);
+  window.addEventListener("pagehide", () => { try { saveQ.flush(); } catch { } });
 
-  const close = () => parent.postMessage({ type: "agywe:close-settings" }, parentOrigin);
+  const close = () => { flushSave().finally(() => parent.postMessage({ type: "agywe:close-settings" }, parentOrigin)); };
   $("#close").onclick = close;
   $("#backdrop").onclick = close;
   window.addEventListener("keydown", (e) => {
@@ -452,7 +491,7 @@
   // ---------------- v0.11 猫猫桌宠素材 ----------------
   let buddyMsgUntil = 0;
   const toastMsg = (t) => { const el = $("#buddySrc"); if (el) { el.textContent = t; buddyMsgUntil = Date.now() + 3500; setTimeout(renderBuddy, 3600); } };
-  const BUDDY_SRC = { custom: "自己选的文件夹", imported: "插件文件夹里的副本", catgirl: "猫猫插件自带的", none: "" };
+  const BUDDY_SRC = { custom: "自己选的文件夹", imported: "配置文件夹里的副本", local: "插件文件夹里的 buddy", catgirl: "猫猫插件自带的", none: "" };
   async function renderBuddy() {
     const el = $("#buddySrc"); if (!el || Date.now() < buddyMsgUntil) return;
     let i = null; try { i = await get("buddy-info"); } catch { }

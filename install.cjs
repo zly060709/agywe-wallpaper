@@ -23,7 +23,7 @@ const path = require("path");
 const crypto = require("crypto");
 const cp = require("child_process");
 
-const AGYWE_VERSION = "0.11.0";
+const AGYWE_VERSION = "0.11.1";
 const PAYLOAD = path.join(__dirname, "payload");
 const PATCHED = ["dist/main.js", "dist/customScheme.js", "dist/preload.js"];
 const MARK = "dist/agywe/manifest.json";

@@ -66,6 +66,14 @@ function catgirlAssets() {
     return fs.existsSync(path.join(d, "idle", "motion.webm")) ? d : "";
   } catch { return ""; }
 }
+// v0.11.1：插件文件夹里的 buddy\（%LOCALAPPDATA%\Programs\agywe-wallpaper\buddy），删掉猫猫插件前可以先把素材放这里
+function buddyLocal() {
+  try {
+    const la = process.env.LOCALAPPDATA;
+    const d = la ? path.join(la, "Programs", "agywe-wallpaper", "buddy") : "";
+    return d && fs.existsSync(d) ? d : "";
+  } catch { return ""; }
+}
 function buddyImported() { try { const d = path.join(app.getPath("userData"), "agywe", "buddy"); return fs.existsSync(d) ? d : ""; } catch { return ""; } }
 function buddyClipFile(dir, clip) {
   for (const f of [path.join(dir, clip, "motion.webm"), path.join(dir, clip + ".webm")]) { try { if (fs.statSync(f).isFile()) return f; } catch { } }
@@ -76,6 +84,7 @@ function buddySource() {
   const tries = [];
   if (b.dir) tries.push(["custom", b.dir]);
   const imp = buddyImported(); if (imp) tries.push(["imported", imp]);
+  const loc = buddyLocal(); if (loc) tries.push(["local", loc]);
   const cg = catgirlAssets(); if (cg) tries.push(["catgirl", cg]);
   for (const [kind, dir] of tries) if (buddyClipFile(dir, "idle")) return { kind, dir };
   return { kind: "none", dir: "" };
@@ -403,6 +412,36 @@ function mergeConfig(base, patch) {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// v0.11.1 配置写盘排队：以前两个保存请求同时到达时会写同一个 config.json.tmp，
+//   第二个 rename 找不到文件 → 返回 500，设置页就把错误内容当成了配置（「设置偶尔不生效」）。
+//   现在一次只写一个，临时文件名各不相同；Windows 上目标被占用时短暂重试。
+// ---------------------------------------------------------------------------
+function makeConfigWriter(fsp, pathMod) {
+  let chain = Promise.resolve(), seq = 0;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function renameRetry(from, to) {
+    for (let i = 0; ; i++) {
+      try { await fsp.rename(from, to); return; }
+      catch (e) {
+        if (i >= 4 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) { try { await fsp.unlink(from); } catch { } throw e; }
+        await sleep(40 * (i + 1));
+      }
+    }
+  }
+  return function writeConfigFile(file, text) {
+    const job = chain.then(async () => {
+      await fsp.mkdir(pathMod.dirname(file), { recursive: true });
+      const tmp = file + "." + process.pid + "." + (++seq) + ".tmp";
+      await fsp.writeFile(tmp, text, "utf8");
+      await renameRetry(tmp, file);
+    });
+    chain = job.then(() => { }, () => { });
+    return job;
+  };
+}
+const writeConfigFile = makeConfigWriter(fsp, path);
+
 async function saveConfig(patch) {
   loadConfig();
   config = mergeConfig(config, patch);
@@ -415,11 +454,9 @@ async function saveConfig(patch) {
   if (patch && ("nowPlaying" in patch || "battery" in patch)) { try { setTimeout(syncNowPlaying, 0); } catch { } }
   if (patch && "autoFix" in patch) { try { setTimeout(syncAutoFix, 0); } catch { } }
   if (patch && ("titleBarMode" in patch || "transparentTitleBar" in patch || "enabled" in patch)) { try { setTimeout(syncTitleBars, 0); } catch { } }
-  await fsp.mkdir(cfgDir(), { recursive: true });
-  const tmp = configPath + ".tmp";
-  await fsp.writeFile(tmp, JSON.stringify(config, null, 2), "utf8");
-  await fsp.rename(tmp, configPath);
-  return config;
+  const result = config;
+  await writeConfigFile(configPath, JSON.stringify(result, null, 2));
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -729,6 +766,15 @@ async function readBody(request) {
 }
 
 function tokenOk(request) { return request.headers.get("x-agywe-token") === TOKEN; }
+// v0.11.1：不带令牌、但会改东西的接口用这个把关。
+//   · 必须是 application/json：别的源发这种请求浏览器会先发预检，而这里不答预检，于是被挡在外面；
+//   · 带了 Origin 就必须是插件自己（网页壁纸在沙箱里，Origin 是 "null"）。
+function sameOriginWrite(request) {
+  const ct = String(request.headers.get("content-type") || "").toLowerCase();
+  if (!ct.startsWith("application/json")) return false;
+  const o = request.headers.get("origin");
+  return !o || o === ORIGIN;
+}
 
 function focusedWin() {
   return BrowserWindow.getFocusedWindow() || undefined;
@@ -772,6 +818,8 @@ async function handleApi(sub, request, url) {
     return new Response(npArt.buf, { status: 200, headers: { "Content-Type": npArt.type || "image/jpeg", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" } });
   }
   if (sub === "system/media-control" && method === "POST") {
+    // v0.11.1：这是不带令牌的接口里唯一会改东西的（暂停 / 切歌），只收插件自己页面发来的 JSON 请求
+    if (!sameOriginWrite(request)) return json({ error: "forbidden" }, 403);
     const { action } = await readBody(request);
     await mediaControl(String(action || ""));
     return json({ ...(npPublic() || { hasMedia: false }), audioState });

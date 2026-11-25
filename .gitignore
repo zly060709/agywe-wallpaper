@@ -21,3 +21,7 @@ _removed_plugins/
 _publish/
 _ui/
 remove-old-plugins.*
+# 桌宠素材（本机复制的，不上传）
+buddy/
+# 冒烟测试的临时文件
+test/.tmp-*/

@@ -4,7 +4,7 @@
 > **非官方插件，与 Google、Antigravity 团队、Wallpaper Engine 均无关联。**
 > 它会改动 Antigravity 安装目录里的 `resources\app.asar`，可能违反 Antigravity 的使用条款（见下面的[账号风险](#账号风险装之前请看)）；Antigravity 更新后也可能失效。安装前会自动备份原版程序包，随时可以用 `uninstall.cmd` 还原。使用风险自负。
 
-当前版本：**v0.11.0** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+当前版本：**v0.11.1** · 只在 Windows 上的 Antigravity 2.34.0 测试过 · 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 
 把本机 Wallpaper Engine 的壁纸铺到 **Antigravity 桌面 App**（2.x Agent 版）界面后面。
 仿照 dsh-wallpaper-engine 的思路实现，场景壁纸用 WebWallGL（MIT）实时渲染。
@@ -43,6 +43,7 @@ Google 的服务条款字面上不允许修改它的软件，装这个插件严�
 | Antigravity 自动更新后壁纸没了 | 一般会自动装回（看 `autofix.log`）；没装回的话退出后重新双击 `install.cmd` |
 | 只想暂时关掉 | 设置面板右上角「启用」开关 |
 | 查看状态 | 双击 `status.cmd` |
+| Antigravity 更新了，想先确认还能不能装 | 双击 `test.cmd`（只读，什么都不改；结果在 `test\smoke-last.log`） |
 | 连续两次没能正常启动 | 插件会自动进入安全模式（左下角有提示和「恢复」按钮）；「关于」页可以导出诊断报告 |
 
 安装器支持参数：`--force` 自动结束正在运行的 Antigravity；`--exe <路径>` 指定 Antigravity.exe 位置（也可以设环境变量 `AGYWE_EXE`）。
@@ -96,7 +97,7 @@ Google 的服务条款字面上不允许修改它的软件，装这个插件严�
 
 - 视频壁纸直接用 Chromium 播放，H.264 / VP9 / AV1 没问题；HEVC 等编码可能放不了（dsh-wallpaper-engine 那种 ffmpeg 转码本项目还没做）。
 - 毛玻璃是自动识别的，个别面板可能没变透明或变得太透；用「面板不透明度」调整，或者关掉「界面毛玻璃」。
-- 只针对 Antigravity 2.x 桌面 App 测试过结构（2.34.0）；VS Code 那种 Antigravity IDE 不适用。
+- 只针对 Antigravity 2.x 桌面 App 测试过结构（2.34.0、2.35.1）；VS Code 那种 Antigravity IDE 不适用。
 
 ## 隐私
 
@@ -110,7 +111,7 @@ Google 的服务条款字面上不允许修改它的软件，装这个插件严�
 
 | 组件 | 来源 | 许可证 | 说明 |
 |---|---|---|---|
-| 本项目（`install.cjs`、`autofix.ps1`、`*.cmd`、`payload/` 下除 WebWallGL 以外的文件） | 本仓库 | [MIT](LICENSE) | 独立编写 |
+| 本项目（`install.cjs`、`autofix.ps1`、`*.cmd`、`test/`、`payload/` 下除 WebWallGL 以外的文件） | 本仓库 | [MIT](LICENSE) | 独立编写 |
 | `payload/app/webwallgl.global.min.js` | [WebWallGL](https://github.com/oneincase/webwallgl)，作者 oneincase | MIT | WebWallGL 的构建文件，随本项目一起分发；许可证见 `payload/app/LICENSE.webwallgl.txt` |
 | 功能思路 | [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine)，作者 elysia395 | MIT | 只参考了功能和交互思路，没有使用它的代码 |
 
