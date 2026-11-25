@@ -56,17 +56,80 @@ try {
 diagWrite(`===== agywe v${AGYWE_VERSION} hook loaded, electron ${process.versions.electron}, pid ${process.pid}`);
 
 // ---------------------------------------------------------------------------
+// v0.11 内置猫猫桌宠的素材：每个动作一段带透明通道的 webm（<动作>/motion.webm 或 <动作>.webm）
+// 找的顺序：设置里选的文件夹 → 复制到 agywe\buddy 的 → 猫猫插件（antigravity-catgirl-pet）自带的
+// 仓库里不放素材，只读你电脑上已经有的
+// ---------------------------------------------------------------------------
+function catgirlAssets() {
+  try {
+    const d = path.join(require("os").homedir(), ".gemini", "config", "plugins", "antigravity-catgirl-pet", "assets", "gemini");
+    return fs.existsSync(path.join(d, "idle", "motion.webm")) ? d : "";
+  } catch { return ""; }
+}
+function buddyImported() { try { const d = path.join(app.getPath("userData"), "agywe", "buddy"); return fs.existsSync(d) ? d : ""; } catch { return ""; } }
+function buddyClipFile(dir, clip) {
+  for (const f of [path.join(dir, clip, "motion.webm"), path.join(dir, clip + ".webm")]) { try { if (fs.statSync(f).isFile()) return f; } catch { } }
+  return "";
+}
+function buddySource() {
+  const b = (config && config.buddy) || {};
+  const tries = [];
+  if (b.dir) tries.push(["custom", b.dir]);
+  const imp = buddyImported(); if (imp) tries.push(["imported", imp]);
+  const cg = catgirlAssets(); if (cg) tries.push(["catgirl", cg]);
+  for (const [kind, dir] of tries) if (buddyClipFile(dir, "idle")) return { kind, dir };
+  return { kind: "none", dir: "" };
+}
+function buddyClips(dir) {
+  const out = [];
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const name = e.isDirectory() ? e.name : e.name.toLowerCase().endsWith(".webm") ? e.name.slice(0, -5) : "";
+      if (name && /^[\w-]{1,40}$/.test(name) && buddyClipFile(dir, name)) out.push(name);
+    }
+  } catch { }
+  return [...new Set(out)].sort();
+}
+function buddyInfo() {
+  loadConfig();
+  const src = buddySource();
+  return { ...src, clips: src.dir ? buddyClips(src.dir) : [], catgirl: catgirlAssets(), imported: buddyImported() };
+}
+async function buddyImport() {
+  const from = catgirlAssets();
+  if (!from) return { ok: false, error: "没找到猫猫插件的素材" };
+  const to = path.join(cfgDir(), "buddy");
+  let n = 0, bytes = 0;
+  for (const clip of buddyClips(from)) {
+    const f = buddyClipFile(from, clip);
+    const dst = path.join(to, clip, "motion.webm");
+    await fsp.mkdir(path.dirname(dst), { recursive: true });
+    await fsp.copyFile(f, dst);
+    n++; try { bytes += fs.statSync(dst).size; } catch { }
+  }
+  // 原作者的许可证跟着素材走
+  try { const lic = path.join(from, "..", "..", "LICENSE"); if (fs.existsSync(lic)) await fsp.copyFile(lic, path.join(to, "LICENSE-antigravity-catgirl-pet.txt")); } catch { }
+  diagWrite(`[buddy] 复制了 ${n} 段动作（${Math.round(bytes / 1048576)} MB）到 ${to}`);
+  return { ok: true, n, bytes };
+}
+
+// ---------------------------------------------------------------------------
 // v0.10.7 本机调试端口：猫猫桌宠这类插件要靠它把界面挂进来（它们读 %APPDATA%\Antigravity\DevToolsActivePort）。
 // 以前是旧主题补丁往快捷方式里加 --remote-debugging-port=0，换个图标打开、或者 Antigravity 自动更新后就没了。
 // 现在在这里统一打开：只监听 127.0.0.1，端口随机。必须在 app ready 之前设，main.js 第一行加载这里，正好来得及。
 // 设置里「外观」→「允许其他插件挂进界面」可以关。
 // ---------------------------------------------------------------------------
 try {
-  let want = true;
+  // v0.10.8：新装默认不开；v0.10.7 以前装的（配置里还没有这一项）照旧打开，猫猫桌宠不受影响
+  let want = false;
   try {
     const f = path.join(app.getPath("userData"), "agywe", "config.json");
-    const c = JSON.parse(fs.readFileSync(f, "utf8"));
-    if (c && c.cdpForPlugins === false) want = false;
+    if (fs.existsSync(f)) {
+      const c = JSON.parse(fs.readFileSync(f, "utf8"));
+      want = !c || typeof c.cdpForPlugins !== "boolean" ? true : c.cdpForPlugins;
+      // v0.11：升级的这一次就不开了（内置桌宠接手，loadConfig 里会把开关一起关掉）
+      if (want && c && !c.migBuddy && catgirlAssets()) want = false;
+    }
   } catch { }
   if (app.commandLine.hasSwitch("remote-debugging-port")) diagWrite("[cdp] 启动参数里已经有 --remote-debugging-port，不用再加");
   else if (want) { app.commandLine.appendSwitch("remote-debugging-port", "0"); diagWrite("[cdp] 已打开本机调试端口（给猫猫桌宠等插件用）"); }
@@ -105,7 +168,7 @@ const DEFAULTS = {
   tbClear103: false,            // v0.10.3：原来选「跟随壁纸颜色」的，升级时换成「透明」一次（只换这一次）
   mig105: false,                // v0.10.5：弹窗默认不透明度从 0.8 提到 0.86（只改没动过的）
   zh: true,                     // v0.10.3 界面汉化（插件内置）
-  cdpForPlugins: true,          // v0.10.7 打开本机调试端口，让猫猫桌宠这类插件能挂进界面（改了要重启 Antigravity）
+  cdpForPlugins: false,         // v0.10.7 打开本机调试端口，让猫猫桌宠这类插件能挂进界面（改了要重启 Antigravity）；v0.10.8 起新装默认关
   dialogOpacity: 0.55,          // v0.10.4 弹窗（设置页这类）的不透明度
   dialogBlur: 16,               // v0.10.6 弹窗的模糊（px）
   floatOpacity: 0.55,           // v0.10.6 浮层（模型选择和子菜单、下拉菜单、右键菜单、提示气泡）的不透明度
@@ -167,6 +230,11 @@ const DEFAULTS = {
   font: "",
   // 挂件玩偶
   pet: { image: null, size: 64, cord: 36, stamp: 0 },
+  // v0.11 猫猫桌宠（动画素材读本机：猫猫插件自带的，或复制到 agywe\\buddy 的，或自己选的文件夹）
+  buddy: { on: false, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0 },
+  migBuddy: false,              // v0.11：装过猫猫插件的，升级时打开内置桌宠一次，并关掉调试端口（不用再让原插件挂进来）
+  // v0.11 用量卡片：上下文 / 缓存命中 / 速度 / 额度
+  usage: { mode: "pill", quota: "auto" },   // mode: card | pill | off；quota: auto 每 5 分钟 + 展开时 | open 只在展开时 | off 不查
   // 主题跟随壁纸
   themeFollow: false,           // 从当前壁纸取色：毛玻璃色调 + 强调色
   themeStrength: 0.6,           // 色调浓淡
@@ -285,6 +353,20 @@ function loadConfig() {
   let saved = {};
   try { saved = JSON.parse(fs.readFileSync(configPath, "utf8")); } catch { }
   config = mergeConfig(DEFAULTS, saved);
+  // v0.10.8：「允许其他插件挂进界面」新装默认关；以前装过的（配置里还没有这一项）保持打开，写进配置免得下次变成关
+  if (Object.keys(saved).length > 0 && typeof saved.cdpForPlugins !== "boolean") {
+    config.cdpForPlugins = true;
+    try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); diagWrite("[cdp] v0.10.8 之前装的：「允许其他插件挂进界面」保持打开"); } catch (e) { warn("config migrate failed", e); }
+  }
+  if (!saved.migBuddy && Object.keys(saved).length > 0) {
+    config.migBuddy = true;
+    if (catgirlAssets()) {
+      config.buddy = { ...config.buddy, on: true };
+      config.cdpForPlugins = false;
+      diagWrite("[buddy] v0.11：发现猫猫插件的素材，打开内置桌宠，关掉调试端口（原插件不会再挂进来，下次启动生效）");
+    }
+    try { fs.mkdirSync(cfgDir(), { recursive: true }); fs.writeFileSync(configPath + ".tmp", JSON.stringify(config, null, 2), "utf8"); fs.renameSync(configPath + ".tmp", configPath); } catch (e) { warn("config migrate failed", e); }
+  }
   if (saved.transparentTitleBar === true && !saved.titleBarMode) config.titleBarMode = "clear";
   // v0.10.3：「跟随壁纸颜色」只能填一块纯色，壁纸有图案时看得出是个色块；透明之前一直没生效（颜色写法 Electron 不认），现在修好了，换过去一次
   if (!saved.mig106) {
@@ -697,6 +779,31 @@ async function handleApi(sub, request, url) {
   if (sub.startsWith("system/")) return new Response(null, { status: 404 });
   // 以下接口会改动东西，需要令牌（只有 agywe 自己的页面拿得到）
   if (!tokenOk(request)) return json({ error: "forbidden" }, 403);
+  if (sub === "usage-summary" && method === "GET") {
+    const u = usageM();
+    return json(u ? await u.summary(Number(url.searchParams.get("days")) || 30) : { ok: false, reason: "load" });
+  }
+  if (sub === "buddy-info" && method === "GET") return json(buddyInfo());
+  if (sub === "buddy-import" && method === "POST") {
+    if (!tokenOk(request)) return new Response(null, { status: 403 });
+    const r = await buddyImport();
+    if (r.ok) { const c = await saveConfig({ buddy: { ...loadConfig().buddy, dir: "", stamp: Date.now() } }); return json({ ...r, info: buddyInfo(), config: c }); }
+    return json(r);
+  }
+  if (sub === "buddy-pick" && method === "POST") {
+    if (!tokenOk(request)) return new Response(null, { status: 403 });
+    const r = await dialog.showOpenDialog(focusedWin(), { title: "选择桌宠素材文件夹（里面每个动作一个文件夹放 motion.webm，或者直接放 <动作>.webm，至少要有 idle）", properties: ["openDirectory"] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return json({ ok: false, canceled: true });
+    const dir = r.filePaths[0];
+    if (!buddyClipFile(dir, "idle")) return json({ ok: false, error: "这个文件夹里没有 idle 动作（idle/motion.webm 或 idle.webm）" });
+    const c = await saveConfig({ buddy: { ...loadConfig().buddy, dir, stamp: Date.now() } });
+    return json({ ok: true, info: buddyInfo(), config: c });
+  }
+  if (sub === "buddy-reset" && method === "POST") {
+    if (!tokenOk(request)) return new Response(null, { status: 403 });
+    const c = await saveConfig({ buddy: { ...loadConfig().buddy, dir: "", stamp: Date.now() } });
+    return json({ ok: true, info: buddyInfo(), config: c });
+  }
   if (sub === "config" && (method === "PUT" || method === "POST")) {
     const body = await readBody(request);
     return json(await saveConfig(body));
@@ -960,6 +1067,16 @@ async function handleRequest(request) {
       const file = insideDir(it.dir, rel);
       if (!file) return new Response(null, { status: 403 });
       return serveFile(file, request, { cors: true, cache: "max-age=600" });
+    }
+    // v0.11 桌宠动作 /buddy/<动作>
+    if (p.startsWith("/buddy/")) {
+      const clip = p.slice(7).split("/")[0];
+      if (!/^[\w-]{1,40}$/.test(clip)) return new Response(null, { status: 400 });
+      loadConfig();
+      const src = buddySource();
+      const file = src.dir ? buddyClipFile(src.dir, clip) : "";
+      if (!file) return new Response(null, { status: 404 });
+      return serveFile(file, request, { cors: true, cache: "max-age=86400" });
     }
     // 自定义图片/视频 /custom/<id>
     if (p.startsWith("/custom/")) {
@@ -2109,6 +2226,29 @@ function sysUsage() {
   try { for (const m of app.getAppMetrics() || []) appMem += ((m.memory && m.memory.workingSetSize) || 0) * 1024; } catch { }
   return { cpu, cores: s.n, memTotal, memUsed: Math.max(0, memTotal - memFree), appMem };
 }
+// v0.11 用量：读本机对话库（usage.js），第一次用到时才加载
+let usageMod = null, usageTried = false;
+function usageM() {
+  if (usageMod || usageTried) return usageMod;
+  usageTried = true;
+  try {
+    usageMod = require("./usage.js");
+    usageMod.init({ dir: cfgDir(), log: (s) => diagWrite(s) });
+    diagWrite(usageMod.available() ? "[usage] 用量统计已加载（node:sqlite 可用）" : "[usage] 这个版本的 Electron 读不了 SQLite：" + usageMod.sqliteError());
+  } catch (e) { warn("usage load failed", e); usageMod = null; }
+  return usageMod;
+}
+try {
+  ipcMain.handle("agywe:usage", async (_e, o) => {
+    const u = usageM();
+    if (!u) return { ok: false, reason: "load" };
+    let cur;
+    try { cur = u.current(o && o.conv); } catch (e) { return { ok: false, reason: "error", error: String(e && e.message || e) }; }
+    if (o && o.sum) { try { cur.sum = await u.today(); } catch { } }
+    return cur;
+  });
+  ipcMain.handle("agywe:buddy-info", () => { try { return buddyInfo(); } catch (e) { return { kind: "none", error: String(e && e.message || e) }; } });
+} catch (e) { warn("usage ipc failed", e); }
 try { ipcMain.handle("agywe:sys", () => { try { return sysUsage(); } catch (e) { return { error: String(e && e.message || e) }; } }); } catch (e) { warn("sys ipc failed", e); }
 
 async function handleRequestLogged(request) {

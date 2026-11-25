@@ -491,7 +491,67 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
 #agywe-dock .agywe-ci b { font: 800 18px/1.1 "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
 #agywe-dock .agywe-ci small { opacity: .65; font-size: 11px; }
 #agywe-dock .agywe-ci.today b { color: #ff8a6a; }
-#agywe-dock .agywe-ci.past { opacity: .5; }`;
+#agywe-dock .agywe-ci.past { opacity: .5; }
+/* v0.11 用量卡片 */
+#agywe-dock .agywe-use { padding: 8px 12px 9px; width: 252px; cursor: grab; }
+#agywe-dock .agywe-use .agywe-pv { display: none; }
+#agywe-dock .agywe-use.pill { width: auto; max-width: 330px; padding: 4px 12px 4px 5px; border-radius: 999px; }
+#agywe-dock .agywe-use.pill .agywe-pv { display: flex; align-items: center; gap: 7px; }
+#agywe-dock .agywe-use.pill .agywe-cv, #agywe-dock .agywe-use.pill .agywe-x { display: none; }
+#agywe-dock .agywe-pt { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+#agywe-dock .agywe-ring { width: 56px; height: 56px; flex: none; position: relative; }
+#agywe-dock .agywe-ring.sm { width: 22px; height: 22px; }
+#agywe-dock .agywe-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+#agywe-dock .agywe-ring circle { fill: none; stroke-width: 3.6; }
+#agywe-dock .agywe-ring.sm circle { stroke-width: 5; }
+#agywe-dock .agywe-ring .bg { stroke: rgba(127,127,127,.3); }
+#agywe-dock .agywe-ring .fg { stroke: var(--agywe-ui-acc, #8fb4ff); stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+#agywe-dock .agywe-ring.warm .fg { stroke: #ffb648; }
+#agywe-dock .agywe-ring.hot .fg { stroke: #ff7a5e; }
+#agywe-dock .agywe-ring b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 800 12.5px/1 "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+#agywe-dock .agywe-ring.sm b { display: none; }
+#agywe-dock .agywe-uh { display: flex; gap: 10px; align-items: center; }
+#agywe-dock .agywe-um { min-width: 0; flex: 1; font-size: 11.5px; line-height: 1.5; }
+#agywe-dock .agywe-um > div { opacity: .78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#agywe-dock .agywe-um b { font-size: 14px; font-variant-numeric: tabular-nums; }
+#agywe-dock .agywe-um .agywe-mdl { opacity: .55; font-size: 10.5px; }
+#agywe-dock .agywe-ul { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; margin-top: 4px; }
+#agywe-dock .agywe-ul span:first-child { opacity: .65; white-space: nowrap; }
+#agywe-dock .agywe-ul span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+#agywe-dock .agywe-uq { margin-top: 7px; padding-top: 5px; border-top: 1px solid rgba(127,127,127,.24); }
+#agywe-dock .agywe-uq[hidden] { display: none; }
+#agywe-dock .agywe-uqg { font-size: 11px; opacity: .62; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#agywe-dock .agywe-uqb { display: grid; grid-template-columns: 42px 1fr 52px; gap: 7px; align-items: center; font-size: 11px; margin-top: 2px; }
+#agywe-dock .agywe-uqb span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+#agywe-dock .agywe-uqb .agywe-sb { grid-column: auto; }
+#agywe-dock .agywe-ut { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#agywe-dock .agywe-uf { font-size: 10.5px; opacity: .45; margin-top: 6px; }
+/* v0.11 猫猫桌宠 */
+#agywe-buddy {
+  position: fixed !important; inset: auto; right: 300px; bottom: 6px; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important;
+  overflow: visible !important; width: var(--agywe-bsize, 150px); height: auto; max-width: none; max-height: none; color: inherit;
+  z-index: 2147483641 !important; pointer-events: auto !important; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+  -webkit-app-region: no-drag !important; app-region: no-drag !important;
+}
+#agywe-buddy.agywe-hold { cursor: grabbing; }
+#agywe-buddy .agywe-bwrap { position: relative; width: 100%; aspect-ratio: 384 / 416; pointer-events: none; }
+#agywe-buddy video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; pointer-events: none; transition: opacity .14s linear; background: transparent; }
+#agywe-buddy video.on { opacity: 1; }
+#agywe-buddy .agywe-bbub {
+  position: absolute; left: 50%; bottom: calc(100% - 10px); translate: -50% 6px; scale: .95; max-width: 250px; width: max-content; box-sizing: border-box;
+  padding: 6px 12px; border-radius: 12px; background: rgba(30,34,46,.92); color: #fff; font: 600 12.5px/1.45 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s, translate .2s, scale .2s; box-shadow: 0 4px 14px rgba(0,0,0,.3); text-shadow: none;
+}
+#agywe-buddy .agywe-bbub.show { opacity: 1; translate: -50% 0; scale: 1; pointer-events: auto; cursor: pointer; }
+#agywe-buddy .agywe-bbub .agywe-sub { display: block; font-weight: 400; font-size: 11.5px; opacity: .9; margin-top: 2px; }
+#agywe-buddy .agywe-bbub[data-mood="done"] { background: rgba(30,150,90,.94); }
+#agywe-buddy .agywe-bbub[data-mood="attention"] { background: rgba(215,140,20,.95); }
+#agywe-buddy .agywe-bbub[data-mood="error"] { background: rgba(200,58,58,.95); }
+#agywe-buddy .agywe-bbub[data-mood="rest"] { background: rgba(214,84,64,.94); }
+#agywe-buddy .agywe-bbub[data-mood="go"] { background: rgba(40,140,200,.94); }
+#agywe-buddy .agywe-bbub[data-mood="info"] { background: rgba(var(--agywe-acc, 143,180,255), .94); color: #10131c; }
+html.agywe-buddy-doll #agywe-pet { display: none !important; }
+html.agywe-hideall #agywe-buddy { display: none !important; }`;
 
     let cssInjected = false;
     function ensureStyle() {
@@ -979,7 +1039,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
     function safeMatches(el, sel) { try { return el.matches(sel); } catch { return false; } }
     function isExcluded(el) { const ex = (cfg && cfg.glassExclude) || []; return ex.length > 0 && ex.some((s) => safeMatches(el, s)); }
     function isOurs(el) {
-      return el === frame || el === settingsFrame || el.id === "agywe-wall" || el.id === "agywe-settings" || el.id === "agywe-fx" || el.id === "agywe-avatars" || el.id === "agywe-splash" || (typeof el.id === "string" && el.id.startsWith("agywe-")) || (dock.root && dock.root.contains(el)) || (menuEl && menuEl.contains(el)) || (pomo.overlay && pomo.overlay.el.contains(el)) ||
+      return el === frame || el === settingsFrame || el.id === "agywe-wall" || el.id === "agywe-settings" || el.id === "agywe-fx" || el.id === "agywe-avatars" || el.id === "agywe-splash" || (typeof el.id === "string" && el.id.startsWith("agywe-")) || (dock.root && dock.root.contains(el)) || (buddy.root && buddy.root.contains(el)) || (menuEl && menuEl.contains(el)) || (pomo.overlay && pomo.overlay.el.contains(el)) ||
         (sp.el && sp.el.contains(el)) ||
         (av.root && av.root.contains(el)) ||
         (pet && pet.root.contains(el)) || (pick && pick.ov.contains(el));
@@ -1542,7 +1602,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       updateTheme(true);
       applyFxCfg();
       applyAudioCfg();
-      try { applyTheme(); applyDock(); applyIdle(); } catch (e) { lastErr = String(e && e.message || e); }
+      try { applyTheme(); applyDock(); applyIdle(); applyBuddy(); } catch (e) { lastErr = String(e && e.message || e); }
       try { noiseApplyCfg(); jumpRefresh(); if (!ccOn()) ccHide(); } catch (e) { lastErr = String(e && e.message || e); }
       scheduleAvatars();
       zhApply();
@@ -1928,6 +1988,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
     }
     function onAgentCount(prev, now) {
       try { onRunCount(prev, now); } catch { }
+      setTimeout(() => { try { buddyUpdate(); } catch { } }, 0);
       try {
         if (mood.counts++ < 40) diagLite("agent-count", { prev, now });
         if (now > prev) { clearTimeout(mood.doneT); if (mood.state) clearMood(); }
@@ -1953,6 +2014,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       clearTimeout(mood.timer);
       mood.state = state;
       renderMood();
+      try { buddyOnMood(state); } catch { }
       if (state === "done") { try { confettiBurst(); } catch { } }
       try { sfxPlay(state); } catch { }
       if (!test) { try { if (cfg && cfg.flashOnDone !== false && !document.hasFocus()) ipcRenderer.send("agywe:flash", state); } catch { } }
@@ -1966,10 +2028,12 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
       if (!mood.state) return;
       mood.state = "";
       renderMood();
+      try { buddyOnMood(""); } catch { }
       post({ type: "agywe:mood", mood: "" });
       scheduleAvatars();
     }
     function renderMood() {
+      try { buddyMoodBubble(); } catch { }
       if (!pet) return;
       try { refreshPet(); } catch { }
       for (const m of ["done", "attention", "error"]) pet.root.classList.toggle("agywe-mood-" + m, mood.state === m);
@@ -2633,6 +2697,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       idle.actT = setTimeout(() => { if (pet) pet.root.classList.remove("agywe-act-" + name); idle.act = ""; }, ms || 1600);
     }
     function petSay(text, ms, kind) {
+      if (buddyReplacing()) { if (text && !mood.state) buddySay(text, ms, kind); return; }
       if (!pet || !text || mood.state) return;
       let b = pet.bubble;
       if (!b || !b.isConnected) { b = document.createElement("div"); b.className = "agywe-bubble"; pet.rig.appendChild(b); pet.bubble = b; }
@@ -2764,6 +2829,8 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
         null,
         [noise.playing ? "停止白噪音（" + NOISE_LABEL[noise.type] + "）" : "白噪音：" + NOISE_LABEL[noiseCfg().type] + " ▶", "", () => noiseOp("toggle")],
         ["今天做了多少", "", () => sayStats()],
+        [useCfg().mode === "card" ? "收起用量卡片" : "展开用量卡片", "", () => toggleUseCard()],
+        ...(buddyActive() ? [["让桌宠休息一下", "", () => buddyHide()]] : []),
         null,
         ["隐藏壁纸和挂件", hkLabel("hide"), () => setHideAll(true)],
         ["打开设置", hkLabel("settings"), () => toggleSettings(true)]
@@ -3535,6 +3602,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       try { renderCal(false); } catch (e) { lastErr = String(e && e.message || e); }
       try { renderSys(); } catch (e) { lastErr = String(e && e.message || e); }
       try { renderCd(); } catch (e) { lastErr = String(e && e.message || e); }
+      try { renderUsage(); } catch (e) { lastErr = String(e && e.message || e); }
     }
 
     // ---- 自检：设置页来问，这里回答页面这边的情况 ----
@@ -3544,6 +3612,9 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
         pet: !!(pet && pet.root.isConnected), petTop: !!(pet && (() => { try { return pet.root.matches(":popover-open"); } catch { return false; } })()),
         running: !!run.t0, audio: audio.state, sfx: sfx.ctx ? sfx.ctx.state : "none", avatars: av.stats || null,
         contrast: { on: contrast.on, need: contrast.need, ratio: contrast.ratio }, darkText, dock: !!(dock.root && dock.root.isConnected),
+        buddy: buddyActive() ? { clip: buddy.clip, src: buddy.info && buddy.info.kind, clips: (buddy.info && buddy.info.clips || []).length, err: buddy.err } : (buddy.info ? buddy.info.kind : "off"),
+        usage: use.data ? (use.data.ok ? { conv: String(use.data.conv || "").slice(0, 8), calls: use.data.calls, fresh: !!use.data.fresh, ctx: use.data.last ? use.data.last.ctx : 0 } : use.data.reason) : (use.c ? "waiting" : "off"),
+        quota: use.quota ? (use.quota.groups || []).length + " groups" : use.qErr || "none",
         lowSpec: !!(cfg && cfg.lowSpec), path: location.pathname, glassPerf: perfSummary()
       };
     }
@@ -3558,7 +3629,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       applyFxCfg();
       if (!fx.cv || !fx.ctx) return;
       let ox = innerWidth / 2, oy = 40;
-      try { if (pet && pet.doll) { const r = pet.doll.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; } } catch { }
+      try { const el = buddyReplacing() ? buddy.root : pet && pet.doll; if (el) { const r = el.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 3; } } catch { }
       const col = () => "hsl(" + Math.floor(R() * 360) + "," + (75 + R() * 20) + "%," + (58 + R() * 12) + "%)";
       for (let i = 0; i < 46; i++) { const a = Math.PI / 2 + (R() - .5) * 2.6, v = 3 + R() * 5; fxSpawn({ t: "petal", x: ox, y: oy, vx: Math.cos(a) * v * (R() < .5 ? -1 : 1), vy: Math.abs(Math.sin(a) * v) * (R() < .7 ? -1 : 1), g: .14, life: 0, max: 80 + R() * 40, col: col(), s: 3 + R() * 3, rot: R() * 6, vr: (R() - .5) * .45 }); }
       for (let i = 0; i < 40; i++) fxSpawn({ t: "petal", x: R() * innerWidth, y: -10 - R() * 60, vx: (R() - .5) * 1.4, vy: 1 + R() * 2, g: .045, life: -Math.floor(R() * 40), max: 140 + R() * 50, col: col(), s: 3 + R() * 3, rot: R() * 6, vr: (R() - .5) * .3 });
@@ -3765,6 +3836,476 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       ensureDock();
       if (!dock.sys || !dock.sys.el.isConnected) { dock.sys = buildSys(); dock.root.appendChild(dock.sys.el); placeDock(); sysPoll(); }
     }
+
+    // =====================================================================
+    // v0.11 用量卡片：上下文占用 / 缓存命中 / 速度 / 今天和本月 / 额度，合在一张卡片里
+    //   上下文和 token 来自本机对话库（主进程 usage.js 读，不联网）
+    //   额度用 Antigravity 自己界面查额度的那个函数（cloudCodeService.retrieveUserQuotaSummary），
+    //   默认每 5 分钟一次、展开卡片时最多每分钟一次，可以在「小组件」里改成只在展开时查或者不查
+    // =====================================================================
+    const USE_DEF = { mode: "pill", quota: "auto" };
+    function useCfg() { return { ...USE_DEF, ...((cfg && cfg.usage) || {}) }; }
+    const use = { c: null, t: 0, data: null, quota: null, qAt: 0, qBusy: false, qErr: "", qFail: 0, at: 0, errN: 0 };
+    function fmtTok(n) {
+      n = Number(n) || 0; const a = Math.abs(n);
+      const f = (x, d) => x.toFixed(d).replace(/\.0+$/, "");
+      return a >= 1e9 ? f(n / 1e9, 2) + "B" : a >= 1e6 ? f(n / 1e6, a >= 1e8 ? 0 : a >= 1e7 ? 1 : 2) + "M" : a >= 1e3 ? f(n / 1e3, 1) + "K" : String(Math.round(n));
+    }
+    function fmtPct(x) { if (x == null || !isFinite(x)) return "--"; if (x >= 99.95) return "100%"; const r = Math.round(x * 10) / 10; return (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)) + "%"; }
+    function fmtLeft(sec) {
+      sec = Math.max(0, Math.round(sec));
+      const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+      return d > 0 ? d + " 天 " + h + " 小时" : h > 0 ? h + " 小时 " + m + " 分" : m > 0 ? m + " 分" : "不到 1 分钟";
+    }
+    // 在页面自己的环境里跑（React 的数据挂在页面那边，插件这边看不到）；找到一次就记住，不会每次都翻一遍页面
+    const QUOTA_JS = `(async () => {
+      const w = window;
+      let s = w.__agyweQuotaSvc;
+      if (!s || typeof s.retrieveUserQuotaSummary !== "function") {
+        s = null;
+        const seen = new Set();
+        for (const el of document.querySelectorAll("body *")) {
+          const k = Object.keys(el).find((x) => x.startsWith("__reactFiber$"));
+          if (!k) continue;
+          for (let f = el[k]; f && !seen.has(f); f = f.return) {
+            seen.add(f);
+            const p = f.memoizedProps, c = p && p.value && p.value.core, v = c && c.cloudCodeService;
+            if (v && typeof v.retrieveUserQuotaSummary === "function") { s = v; break; }
+          }
+          if (s) break;
+        }
+        w.__agyweQuotaSvc = s;
+      }
+      if (!s) return { ok: false, reason: "nosvc" };
+      const r = await s.retrieveUserQuotaSummary(undefined, false);
+      const gs = (r && r.response && r.response.groups) || [];
+      return { ok: true, groups: gs.map((g) => ({
+        name: String(g.displayName || g.id || ""),
+        buckets: (Array.isArray(g.buckets) ? g.buckets : []).map((b) => {
+          const v = b.remaining && b.remaining.value;
+          const rs = b.resetTime && b.resetTime.seconds != null ? Number(b.resetTime.seconds) : 0;
+          return { id: String(b.bucketId || ""), win: String(b.window || ""), name: String(b.displayName || ""), frac: typeof v === "number" && isFinite(v) ? v : null, reset: isFinite(rs) ? rs : 0, desc: String(b.description || "") };
+        })
+      })) };
+    })()`;
+    function quotaWanted(cardOpen) {
+      const q = useCfg().quota;
+      if (q === "off" || document.hidden || hideAll) return false;
+      const age = Date.now() - use.qAt;
+      // 界面还没加载完（找不到额度服务）：15 秒后再找，最多找 40 次；真出错才按 2、4、8… 分钟往后推
+      if (use.qWait) return use.qWait < 40 && age > 15000;
+      const backoff = use.qFail ? Math.min(30, 2 ** use.qFail) * 60000 : 0;
+      if (age < backoff) return false;
+      if (cardOpen && age > 60000) return true;
+      return q === "auto" && age > 300000;
+    }
+    async function quotaFetch(force) {
+      if (use.qBusy || !webFrame || typeof webFrame.executeJavaScript !== "function") return;
+      if (!force && !quotaWanted(useCfg().mode === "card")) return;
+      if (force && Date.now() - use.qAt < 5000) return;
+      use.qBusy = true; use.qAt = Date.now();
+      try {
+        const r = await webFrame.executeJavaScript(QUOTA_JS);
+        if (r && r.ok) {
+          if (!use.quota || use.qWait) diagLite("quota-ok", { groups: (r.groups || []).map((g) => g.name + ":" + (g.buckets || []).length), waited: use.qWait || 0 });
+          use.quota = { groups: r.groups, at: Date.now() }; use.qErr = ""; use.qFail = 0; use.qWait = 0;
+        } else if (r && r.reason === "nosvc") {
+          use.qWait = (use.qWait || 0) + 1;
+          use.qErr = use.qWait < 40 ? "额度：等界面加载完再查…" : "界面里没找到额度信息";
+          if (use.qWait === 1 || use.qWait === 8 || use.qWait === 40) diagLite("quota-nosvc", { tries: use.qWait, path: location.pathname });
+        } else { use.qErr = "没查到额度"; use.qFail++; diagLite("quota-empty", { r: JSON.stringify(r).slice(0, 200) }); }
+      } catch (e) {
+        use.qErr = "查询失败"; use.qFail++;
+        if (use.qFail <= 2) diagLite("quota-failed", { error: String(e && e.message || e).slice(0, 200) });
+      } finally { use.qBusy = false; }
+      if (use.c) usePaint();
+    }
+    // 跟当前模型对应的那一组额度（Claude / GPT 一组，Gemini 一组）
+    function quotaGroupFor(model) {
+      const gs = (use.quota && use.quota.groups) || [];
+      if (!gs.length) return null;
+      const m = String(model || "").toLowerCase();
+      const tp = /claude|gpt/.test(m), ar = /argon/.test(m);
+      return gs.find((g) => { const n = g.name.toLowerCase(); return tp ? /claude|gpt/.test(n) : ar ? /argon/.test(n) : !/claude|gpt|argon/.test(n); }) || gs[0];
+    }
+    function bucketLabel(b) {
+      const s = (b.id + " " + b.win + " " + b.name).toLowerCase();
+      return /5h|5 h|five/.test(s) ? "5 小时" : /week/.test(s) ? "每周" : /day|daily/.test(s) ? "每天" : (b.name || b.win || "额度");
+    }
+    function ringEl(cls) {
+      const box = document.createElement("div"); box.className = "agywe-ring" + (cls ? " " + cls : "");
+      const fg = svgEl("circle", { class: "fg", cx: 18, cy: 18, r: 15.5, pathLength: 100, "stroke-dasharray": "0 100" });
+      box.appendChild(svgEl("svg", { viewBox: "0 0 36 36", "aria-hidden": "true" }, [svgEl("circle", { class: "bg", cx: 18, cy: 18, r: 15.5 }), fg]));
+      const b = document.createElement("b"); box.appendChild(b);
+      return { box, fg, b };
+    }
+    function setRing(r, pct) {
+      const p = pct == null || !isFinite(pct) ? 0 : clamp(pct, 0, 100);
+      r.fg.setAttribute("stroke-dasharray", p.toFixed(1) + " 100");
+      r.box.classList.toggle("warm", p >= 70 && p < 88);
+      r.box.classList.toggle("hot", p >= 88);
+      r.b.textContent = pct == null || !isFinite(pct) ? "--" : Math.round(p) + "%";
+    }
+    function setUseMode(m) {
+      if (cfg) cfg.usage = { ...useCfg(), mode: m };
+      post({ type: "agywe:save-cfg", patch: { usage: { ...useCfg(), mode: m } } });
+      if (use.c) { use.c.el.classList.toggle("pill", m === "pill"); usePaint(); }
+      use.force = true;
+      if (m === "card") quotaFetch(!!(use.qWait && !use.quota));
+      clearTimeout(use.t); use.t = setTimeout(usePoll, 50);
+      setTimeout(placeDock, 60);
+    }
+    function removeUse() { clearTimeout(use.t); use.t = 0; if (use.c) { try { use.c.el.remove(); } catch { } use.c = null; placeDock(); } }
+    function buildUse() {
+      const el = document.createElement("div"); el.className = "agywe-card agywe-use";
+      // 小胶囊
+      const pv = document.createElement("div"); pv.className = "agywe-pv";
+      const pr = ringEl("sm"); const pt = document.createElement("span"); pt.className = "agywe-pt"; pt.textContent = "用量…";
+      pv.append(pr.box, pt);
+      // 卡片
+      const cv = document.createElement("div"); cv.className = "agywe-cv";
+      const hd = document.createElement("div"); hd.className = "agywe-wh";
+      const ti = document.createElement("span"); ti.textContent = "🧠 用量";
+      const sub = document.createElement("small"); sub.className = "agywe-ut";
+      hd.append(ti, sub);
+      const top = document.createElement("div"); top.className = "agywe-uh";
+      const cr = ringEl("");
+      const meta = document.createElement("div"); meta.className = "agywe-um";
+      top.append(cr.box, meta);
+      const lines = document.createElement("div");
+      const qbox = document.createElement("div"); qbox.className = "agywe-uq";
+      const foot = document.createElement("div"); foot.className = "agywe-uf";
+      cv.append(hd, top, lines, qbox, foot);
+      const x = document.createElement("button"); x.className = "agywe-x"; x.textContent = "✕"; x.title = "收成小胶囊（双击也能切换）";
+      x.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); setUseMode("pill"); });
+      el.append(pv, cv, x);
+      el.addEventListener("dblclick", (e) => { if (e.target.closest && e.target.closest("button")) return; setUseMode(useCfg().mode === "pill" ? "card" : "pill"); });
+      el.addEventListener("click", (e) => { if (useCfg().mode === "pill" && !(e.target.closest && e.target.closest("button")) && !dock.drag) { /* 单击胶囊不展开，免得拖动时误触；双击展开 */ } });
+      el.addEventListener("mouseenter", () => { if (use.qWait && !use.quota) quotaFetch(true); else if (useCfg().mode === "pill") quotaFetch(false); });
+      return { el, pr, pt, sub, cr, meta, lines, qbox, foot };
+    }
+    function lineRow(parent, name, val, tip) {
+      const r = document.createElement("div"); r.className = "agywe-ul";
+      const a = document.createElement("span"); a.textContent = name;
+      const b = document.createElement("span"); b.textContent = val;
+      if (tip) r.title = tip;
+      r.append(a, b); parent.appendChild(r);
+    }
+    function usePaint() {
+      const c = use.c; if (!c) return;
+      const d = use.data, L = d && d.last, T = d && d.total;
+      const ctxPct = L && L.max ? 100 * L.ctx / L.max : d && d.ok && !L ? 0 : null;
+      const hitNow = L && (L.in + L.cache) ? 100 * L.cache / (L.in + L.cache) : null;
+      const hitAll = T && (T.in + T.cache) ? 100 * T.cache / (T.in + T.cache) : null;
+      const tps = L && L.stream > 0.05 ? L.out / L.stream : null;
+      const g = quotaGroupFor(L && L.model);
+      const b5 = g && (g.buckets.find((b) => bucketLabel(b) === "5 小时") || g.buckets[0]);
+      // 胶囊
+      setRing(c.pr, ctxPct);
+      let pt = "";
+      if (!d) pt = "用量…";
+      else if (!d.ok) pt = d.reason === "nosqlite" ? "用量：这个版本读不了" : d.reason === "noconv" ? "还没有对话" : "用量读不到";
+      else if (!L) pt = "上下文 0% · 新对话" + (b5 && b5.frac != null ? " · " + bucketLabel(b5).replace(" 小时", "h") + " 剩 " + fmtPct(b5.frac * 100) : "");
+      else pt = "上下文 " + fmtPct(ctxPct) + " · 命中 " + fmtPct(hitNow) + (b5 && b5.frac != null ? " · " + bucketLabel(b5).replace(" 小时", "h") + " 剩 " + fmtPct(b5.frac * 100) : "");
+      if (c.pt.textContent !== pt) c.pt.textContent = pt;
+      c.el.title = L ? (d.title ? "「" + d.title + "」\n" : "") + "上下文 " + fmtTok(L.ctx) + " / " + fmtTok(L.max) + "\n本轮：输入 " + fmtTok(L.in) + " · 缓存命中 " + fmtTok(L.cache) + " · 输出 " + fmtTok(L.out) + "\n双击展开" : "双击展开";
+      if (useCfg().mode === "pill") return;
+      // 卡片
+      c.sub.textContent = d && d.title ? (d.title.length > 18 ? d.title.slice(0, 17) + "…" : d.title) : "";
+      c.sub.title = d && d.title ? d.title : "";
+      setRing(c.cr, ctxPct);
+      c.meta.textContent = ""; c.lines.textContent = "";
+      if (d && d.ok && !L) {
+        const big = document.createElement("b"); big.textContent = "0";
+        const s1 = document.createElement("div"); s1.textContent = "新对话，还没调用过模型";
+        c.meta.append(big, s1);
+        const S = d.sum;
+        if (S && S.today && S.month) lineRow(c.lines, "今天 / 本月", fmtTok(S.today.in + S.today.cache + S.today.out) + " / " + fmtTok(S.month.in + S.month.cache + S.month.out));
+      } else if (!d || !d.ok || !L) {
+        const e = document.createElement("div"); e.className = "agywe-empty"; e.textContent = pt; c.meta.appendChild(e);
+      } else {
+        const big = document.createElement("b"); big.textContent = fmtTok(L.ctx) + " / " + fmtTok(L.max);
+        const s1 = document.createElement("div"); s1.innerHTML = ""; s1.textContent = "本轮 输入 " + fmtTok(L.in) + " · 命中 " + fmtTok(L.cache);
+        const s2 = document.createElement("div"); s2.textContent = "输出 " + fmtTok(L.out) + (L.think ? "（思考 " + fmtTok(L.think) + "）" : "");
+        const s3 = document.createElement("div"); s3.className = "agywe-mdl"; s3.textContent = L.model || ""; s3.title = L.model || "";
+        c.meta.append(big, s1, s2, s3);
+        lineRow(c.lines, "缓存命中", "本轮 " + fmtPct(hitNow) + " · 本对话 " + fmtPct(hitAll), "命中的 token 按缓存价计费，越高越省");
+        lineRow(c.lines, "速度", (tps ? Math.round(tps) + " tok/s" : "--") + " · 首字 " + (L.ttft ? L.ttft.toFixed(1) + " 秒" : "--"), "最后一次调用：输出 token ÷ 生成用时；首字 = 发出请求到开始出字");
+        lineRow(c.lines, "本对话", d.calls + " 次调用 · " + fmtTok(T.in + T.cache + T.out), "输入 " + fmtTok(T.in) + " · 缓存命中 " + fmtTok(T.cache) + " · 输出 " + fmtTok(T.out) + " · 思考 " + fmtTok(T.think));
+        const S = d.sum;
+        if (S && S.today && S.month) lineRow(c.lines, "今天 / 本月", fmtTok(S.today.in + S.today.cache + S.today.out) + " / " + fmtTok(S.month.in + S.month.cache + S.month.out),
+          "今天 " + S.today.calls + " 次调用，命中 " + fmtPct((S.today.in + S.today.cache) ? 100 * S.today.cache / (S.today.in + S.today.cache) : null) + "\n本月 " + S.month.calls + " 次调用，命中 " + fmtPct((S.month.in + S.month.cache) ? 100 * S.month.cache / (S.month.in + S.month.cache) : null) + "\n按天、按模型的明细在设置「小组件」里");
+      }
+      // 额度
+      c.qbox.textContent = "";
+      const q = useCfg().quota;
+      if (q === "off") { c.qbox.hidden = true; }
+      else {
+        c.qbox.hidden = false;
+        const gs = (use.quota && use.quota.groups) || [];
+        if (!gs.length) {
+          const e = document.createElement("div"); e.className = "agywe-uqg"; e.textContent = use.qBusy ? "额度查询中…" : use.qErr || "额度还没查"; c.qbox.appendChild(e);
+        }
+        const now = Date.now() / 1000;
+        for (const gr of gs) {
+          if (!gr.buckets.length) continue;
+          const h = document.createElement("div"); h.className = "agywe-uqg"; h.textContent = gr.name + (g === gr ? " · 当前模型" : ""); c.qbox.appendChild(h);
+          for (const bk of gr.buckets) {
+            const r = document.createElement("div"); r.className = "agywe-uqb";
+            const nm = document.createElement("span"); nm.textContent = bucketLabel(bk);
+            const bar = document.createElement("div"); bar.className = "agywe-sb"; const fi = document.createElement("i");
+            const pct = bk.frac == null ? 0 : clamp(bk.frac * 100, 0, 100);
+            fi.style.width = pct.toFixed(1) + "%"; fi.classList.toggle("hot", bk.frac != null && pct <= 15); bar.appendChild(fi);
+            const v = document.createElement("span"); v.textContent = "剩 " + fmtPct(bk.frac == null ? null : pct);
+            if (bk.reset > now) r.title = fmtLeft(bk.reset - now) + "后重置"; else if (bk.desc) r.title = bk.desc;
+            r.append(nm, bar, v); c.qbox.appendChild(r);
+          }
+        }
+      }
+      const ago = use.at ? Math.round((Date.now() - use.at) / 1000) : null;
+      c.foot.textContent = "数据来自本机对话记录" + (use.quota ? " · 额度 " + Math.max(0, Math.round((Date.now() - use.quota.at) / 60000)) + " 分钟前" : "") + (ago != null && ago > 15 ? " · " + ago + " 秒前" : "");
+      placeDock();
+    }
+    async function usePoll() {
+      clearTimeout(use.t); use.t = 0;
+      if (!use.c || !use.c.el.isConnected) return;
+      if (document.hidden) { use.t = setTimeout(usePoll, 15000); return; }
+      const card = useCfg().mode === "card";
+      const conv = chatContext().conv;
+      const every = agents > 0 ? 2000 : card ? 3000 : 5000;
+      // 换了对话（包括新开对话）马上刷新，不等下一轮
+      if (conv === use.conv && use.at && Date.now() - use.at < every && !use.force) { use.t = setTimeout(usePoll, 1000); return; }
+      use.force = false;
+      try {
+        const d = await ipcRenderer.invoke("agywe:usage", { conv, sum: card });
+        if (d) { use.data = d; use.at = Date.now(); use.conv = conv; }
+      } catch (e) { if (use.errN++ < 3) diagLite("usage-ipc-failed", { error: String(e && e.message || e).slice(0, 200) }); }
+      if (!use.c) return;
+      usePaint();
+      quotaFetch(false);
+      use.t = setTimeout(usePoll, 1000);
+    }
+    function renderUsage() {
+      if (!cfg || useCfg().mode === "off" || dock.usageHidden) { removeUse(); return; }
+      ensureDock();
+      if (!use.c || !use.c.el.isConnected) { use.c = buildUse(); dock.root.insertBefore(use.c.el, dock.root.firstChild); usePaint(); usePoll(); }
+      use.c.el.classList.toggle("pill", useCfg().mode === "pill");
+      placeDock();
+    }
+    function toggleUseCard() {
+      dock.usageHidden = false;
+      if (useCfg().mode === "off") { if (cfg) cfg.usage = { ...useCfg(), mode: "card" }; post({ type: "agywe:save-cfg", patch: { usage: { ...useCfg(), mode: "card" } } }); renderUsage(); quotaFetch(true); return; }
+      renderUsage();
+      setUseMode(useCfg().mode === "card" ? "pill" : "card");
+    }
+
+    // =====================================================================
+    // v0.11 猫猫桌宠：每个动作一段透明 webm，两个 <video> 交替，换动作不闪
+    //   动作素材只读本机（猫猫插件自带的 / 复制到 agywe\buddy 的 / 自己选的文件夹），插件本身不带
+    // =====================================================================
+    const BUDDY_POS = "agywe:buddy-pos";
+    const buddy = { root: null, wrap: null, vids: [], cur: -1, clip: "", loop: false, then: null, oneShot: false, tok: 0, info: null, stamp: -1, drag: null, pos: null, bubble: null, sayT: 0, idleT: 0, lastAct: Date.now(), err: 0, greeted: false, applying: false, again: false, moveDir: 0 };
+    function buddyCfg() { return { on: false, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0, ...((cfg && cfg.buddy) || {}) }; }
+    function buddyActive() { return !!(buddy.root && buddy.root.isConnected && buddy.info && buddy.info.dir); }
+    function buddyReplacing() { return buddyActive() && buddyCfg().replaceDoll === true; }
+    function buddyHas(c) { return !!(buddy.info && Array.isArray(buddy.info.clips) && buddy.info.clips.includes(c)); }
+    function bclip(...names) { for (const n of names) if (buddyHas(n)) return n; return "idle"; }
+    function buddyPosLoad() { try { const v = JSON.parse(localStorage.getItem(BUDDY_POS) || "null"); if (v && isFinite(v.r) && isFinite(v.b)) return v; } catch { } return { r: 300, b: 6 }; }
+    function placeBuddy() {
+      if (!buddy.root) return;
+      const p = buddy.pos || (buddy.pos = buddyPosLoad());
+      const w = buddy.root.offsetWidth || buddyCfg().size, h = buddy.root.offsetHeight || w;
+      buddy.root.style.setProperty("right", clamp(p.r, -w * .3, Math.max(0, innerWidth - w * .7)) + "px", "important");
+      buddy.root.style.setProperty("bottom", clamp(p.b, -h * .2, Math.max(0, innerHeight - h * .8)) + "px", "important");
+    }
+    function removeBuddy() {
+      clearInterval(buddy.idleT); buddy.idleT = 0;
+      if (buddy.root) { for (const v of buddy.vids) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch { } } try { buddy.root.remove(); } catch { } }
+      buddy.root = null; buddy.vids = []; buddy.cur = -1; buddy.clip = ""; buddy.bubble = null; buddy.oneShot = false; buddy.then = null;
+      document.documentElement.classList.remove("agywe-buddy-doll");
+    }
+    async function applyBuddy() {
+      if (buddy.applying) { buddy.again = true; return; }
+      buddy.applying = true;
+      try {
+        const b = buddyCfg();
+        if (!cfg || !b.on || hideAll) { removeBuddy(); return; }
+        if (!buddy.info || buddy.stamp !== (b.stamp || 0) + ":" + b.dir) {
+          buddy.stamp = (b.stamp || 0) + ":" + b.dir;
+          try { buddy.info = await ipcRenderer.invoke("agywe:buddy-info"); } catch { buddy.info = null; }
+          if (buddy.root) { buddy.clip = ""; buddy.oneShot = false; }
+        }
+        if (!buddy.info || !buddy.info.dir) { removeBuddy(); if (!buddy.warned) { buddy.warned = true; diagLite("buddy-no-assets", { info: buddy.info }); } return; }
+        ensureBuddy();
+        buddy.root.style.setProperty("--agywe-bsize", clamp(Number(b.size) || 150, 60, 420) + "px");
+        placeBuddy();
+        document.documentElement.classList.toggle("agywe-buddy-doll", b.replaceDoll === true);
+        if (!buddy.clip) {
+          if (!buddy.greeted && b.greet !== false && buddyHas("wave")) { buddy.greeted = true; buddyPlay("wave", false); }
+          else buddyUpdate();
+        }
+      } catch (e) { lastErr = String(e && e.message || e); }
+      finally {
+        buddy.applying = false;
+        if (buddy.again) { buddy.again = false; setTimeout(applyBuddy, 0); }
+      }
+    }
+    function ensureBuddy() {
+      if (buddy.root && buddy.root.isConnected) { toTopLayer(buddy.root); return; }
+      const root = document.createElement("div"); root.id = "agywe-buddy";
+      const wrap = document.createElement("div"); wrap.className = "agywe-bwrap";
+      const mk = () => { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.disablePictureInPicture = true; v.setAttribute("aria-hidden", "true"); v.addEventListener("loadedmetadata", () => { if (v.videoWidth && v.videoHeight) wrap.style.aspectRatio = v.videoWidth + " / " + v.videoHeight; }); return v; };
+      buddy.vids = [mk(), mk()];
+      wrap.append(...buddy.vids);
+      const bub = document.createElement("div"); bub.className = "agywe-bbub";
+      bub.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (mood.state) clearMood(); else bub.classList.remove("show"); });
+      root.append(wrap, bub);
+      document.documentElement.appendChild(root);
+      buddy.root = root; buddy.wrap = wrap; buddy.bubble = bub; buddy.cur = -1; buddy.clip = "";
+      bindBuddy(root);
+      toTopLayer(root);
+      placeBuddy();
+      clearInterval(buddy.idleT);
+      buddy.idleT = setInterval(buddyIdleTick, 5000);
+    }
+    function buddyPlay(name, loop, then) {
+      if (!buddy.root || !buddy.vids.length) return;
+      if (!buddyHas(name)) name = "idle";
+      buddy.then = then || null; buddy.oneShot = !loop;
+      if (!loop) buddy.lastAct = Date.now();
+      const curV = buddy.vids[buddy.cur];
+      if (name === buddy.clip && curV) {
+        curV.loop = !!loop; buddy.loop = !!loop;
+        if (!loop) { try { curV.currentTime = 0; } catch { } }
+        if (curV.paused && !document.hidden) curV.play().catch(() => { });
+        return;
+      }
+      buddy.clip = name; buddy.loop = !!loop;
+      const nextI = buddy.cur === 0 ? 1 : 0, v = buddy.vids[nextI], old = curV;
+      const tok = ++buddy.tok;
+      v.loop = !!loop;
+      v.onerror = () => {
+        if (tok !== buddy.tok) return;
+        if (buddy.err++ < 3) diagLite("buddy-video-error", { clip: name, code: v.error && v.error.code });
+        buddy.oneShot = false; buddy.then = null;
+        if (name !== "idle") { buddy.clip = ""; buddyPlay("idle", true); }
+      };
+      v.onplaying = () => {
+        if (tok !== buddy.tok) return;
+        v.classList.add("on");
+        if (old && old !== v) { old.classList.remove("on"); setTimeout(() => { if (tok === buddy.tok) { try { old.pause(); } catch { } } }, 160); }
+        buddy.cur = nextI;
+      };
+      v.onended = () => {
+        if (tok !== buddy.tok || v.loop) return;
+        const t = buddy.then; buddy.then = null; buddy.oneShot = false;
+        if (t) { try { t(); } catch { buddyUpdate(); } } else buddyUpdate();
+      };
+      v.src = ORIGIN + "/buddy/" + encodeURIComponent(name) + "?v=" + encodeURIComponent(String(buddyCfg().stamp || 0));
+      if (!document.hidden) v.play().catch(() => { });
+    }
+    function buddyBase() {
+      if (mood.state === "attention") return bclip("waiting");
+      if (mood.state === "error") return bclip("emotion-serious", "waiting");
+      if (agents > 0) return bclip("working", "reviewing");
+      return "idle";
+    }
+    function buddyUpdate() {
+      if (!buddyActive() || buddy.oneShot || (buddy.drag && buddy.drag.moved)) return;
+      buddyPlay(buddyBase(), true);
+    }
+    function buddyOnMood(state) {
+      if (!buddyActive()) return;
+      if (state === "done") buddyPlay(bclip("jump", "emotion-cheerful"), false, () => buddyPlay(bclip("emotion-cheerful", "wave"), false));
+      else if (state === "attention") buddyPlay(bclip("emotion-frightened", "waiting"), false);
+      else if (state === "error") buddyPlay(bclip("fail", "emotion-confused"), false);
+      else { buddy.oneShot = false; buddyUpdate(); }
+    }
+    function buddyIdleTick() {
+      if (!buddyActive()) return;
+      const vis = !document.hidden && !hideAll;
+      const v = buddy.vids[buddy.cur];
+      if (v) { if (!vis && !v.paused) { try { v.pause(); } catch { } } else if (vis && v.paused && !(v.ended && !v.loop)) v.play().catch(() => { }); }
+      if (!vis || buddy.oneShot || buddy.drag || mood.state || agents > 0 || buddyCfg().idle === false || (cfg && cfg.lowSpec)) return;
+      const quiet = Date.now() - buddy.lastAct;
+      if (quiet < 45000 || Math.random() > 0.18) return;
+      const pool = ["look", "look", "look", "emotion-starry", "emotion-confused", "wave", "emotion-shy"].filter(buddyHas);
+      if (pool.length) buddyPlay(pool[Math.floor(Math.random() * pool.length)], false);
+    }
+    function buddySay(text, ms, kind, sticky) {
+      const b = buddy.bubble; if (!b || !text) return;
+      b.textContent = "";
+      const lines = String(text).split("\n");
+      b.appendChild(document.createTextNode(lines[0]));
+      if (lines[1]) { const s = document.createElement("span"); s.className = "agywe-sub"; s.textContent = lines.slice(1).join(" "); b.appendChild(s); }
+      b.dataset.mood = kind || "talk";
+      b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+      clearTimeout(buddy.sayT);
+      if (!sticky) buddy.sayT = setTimeout(() => { if (!mood.state) b.classList.remove("show"); }, ms || 4500);
+    }
+    function buddyMoodBubble() {
+      if (!buddyReplacing() || !buddy.bubble) return;
+      if (!mood.state) { buddy.bubble.classList.remove("show"); return; }
+      const sub = moodSub();
+      buddySay((mood.state === "done" ? "✓ " : mood.state === "attention" ? "! " : "✕ ") + moodText(mood.state) + (sub ? "\n" + sub : ""), 0, mood.state, true);
+    }
+    const BUDDY_PAT = ["emotion-shy", "emotion-cheerful", "emotion-starry", "jump"];
+    const BUDDY_LINES = ["喵～", "别戳啦，在干活呢", "摸摸头～", "今天也辛苦啦", "要不要歇一会儿？", "嘿嘿"];
+    function bindBuddy(root) {
+      root.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault(); e.stopPropagation();
+        const p = buddy.pos || buddyPosLoad();
+        buddy.drag = { x: e.clientX, y: e.clientY, r: p.r, b: p.b, moved: false, lastX: e.clientX };
+        try { root.setPointerCapture(e.pointerId); } catch { }
+        try { closeMenu(); } catch { }
+      });
+      root.addEventListener("pointermove", (e) => {
+        const d = buddy.drag; if (!d) return;
+        const dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (!d.moved && Math.hypot(dx, dy) < 5) return;
+        if (!d.moved) { d.moved = true; root.classList.add("agywe-hold"); }
+        buddy.pos = { r: d.r - dx, b: d.b - dy }; placeBuddy();
+        const step = e.clientX - d.lastX;
+        if (Math.abs(step) >= 6) {
+          const dir = step < 0 ? -1 : 1; d.lastX = e.clientX;
+          if (dir !== buddy.moveDir) { buddy.moveDir = dir; buddy.oneShot = false; buddyPlay(bclip(dir < 0 ? "move-left" : "move-right"), true); }
+        }
+      });
+      const end = (e, cancel) => {
+        const d = buddy.drag; buddy.drag = null;
+        try { root.releasePointerCapture(e.pointerId); } catch { }
+        root.classList.remove("agywe-hold");
+        if (!d) return;
+        if (d.moved) {
+          buddy.moveDir = 0;
+          const p = buddy.pos; try { localStorage.setItem(BUDDY_POS, JSON.stringify(p)); } catch { }
+          buddy.oneShot = false; buddyUpdate();
+          return;
+        }
+        if (cancel) return;
+        // 单击：先等一下看是不是双击
+        clearTimeout(buddy.clickT);
+        buddy.clickT = setTimeout(() => {
+          if (mood.state) { clearMood(); return; }
+          try { sfxPlay("pet"); } catch { }
+          buddyPlay(BUDDY_PAT.filter(buddyHas)[Math.floor(Math.random() * BUDDY_PAT.filter(buddyHas).length)] || "idle", false);
+          if (Math.random() < 0.45) buddySay(BUDDY_LINES[Math.floor(Math.random() * BUDDY_LINES.length)], 2600);
+        }, 260);
+      };
+      root.addEventListener("pointerup", (e) => end(e, false));
+      root.addEventListener("pointercancel", (e) => end(e, true));
+      root.addEventListener("dblclick", (e) => { e.preventDefault(); e.stopPropagation(); clearTimeout(buddy.clickT); toggleUseCard(); });
+      root.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); openMenu(e.clientX + 4, e.clientY + 4); });
+    }
+    function buddyHide() {
+      if (cfg) cfg.buddy = { ...buddyCfg(), on: false };
+      post({ type: "agywe:save-cfg", patch: { buddy: { ...buddyCfg(), on: false } } });
+      removeBuddy();
+      toast("桌宠先休息啦，到设置「挂件」里可以叫回来");
+    }
+    document.addEventListener("visibilitychange", () => { try { buddyIdleTick(); } catch { } });
+    window.addEventListener("resize", () => { try { placeBuddy(); } catch { } }, { passive: true });
 
     // ---- 倒数日小组件 ----
     function cdDays(x) {
