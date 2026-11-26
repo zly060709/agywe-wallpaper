@@ -180,7 +180,10 @@
     setTimeout(() => disposeEntry(old), Math.max(300, (Number(cfg.transitionSec ?? 0.9) * 1000) + 200));
     if (!par.raf) par.raf = requestAnimationFrame(parallaxTick);
     applyPause();
-    setTimeout(updatePalette, 400);
+    setTimeout(() => updatePalette(0), 400);
+    if (entry.video) {
+      entry.video.addEventListener("loadeddata", () => setTimeout(() => updatePalette(0), 250), { once: true });
+    }
     toParent({ type: "agywe:config", config: publicCfg() });
   }
 
@@ -506,7 +509,7 @@
     // lo / hi：壁纸里偏暗 / 偏亮那 10% 的亮度（自动对比度按这两个算，比平均值稳）
     return { dominant: rgbHex(dom.c), accent: rgbHex((acc || dom).c), tr: tr || rgbHex(dom.c), dark: lum / n < 110, lum: Math.round(lum / n), lo: pct(0.1), hi: pct(0.9) };
   }
-  async function updatePalette() {
+  async function updatePalette(retry) {
     const seq = ++palSeq;
     if (!cur || !cur.layer) return;
     let src = null;
@@ -522,9 +525,16 @@
           src = im;
         } else { const im = cur.layer.querySelector("img"); if (im) src = im; }
       }
-      if (!src || seq !== palSeq) return;
+      if (!src || seq !== palSeq) {
+        if ((retry || 0) < 3 && cur && cur.video) setTimeout(() => updatePalette((retry || 0) + 1), 1200);
+        return;
+      }
       const pal = paletteFrom(src);
       if (!pal) return;
+      // 视频片头或动态画面刚渲染时偶尔抓到全黑帧：延迟复采，避免自动对比度误判壁纸为纯黑
+      if (pal.hi < 14 && (retry || 0) < 3 && cur && cur.video) {
+        setTimeout(() => updatePalette((retry || 0) + 1), 1500);
+      }
       lastPal = pal;
       applyPalVars();
       toParent({ type: "agywe:palette", palette: pal });

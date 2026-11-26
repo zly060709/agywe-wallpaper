@@ -138,8 +138,8 @@ html.agywe-glasson.agywe-darktext [data-agywe-pse~="b"]::before, html.agywe-glas
 html.agywe-on [data-agywe-glass="panel"], html.agywe-on [data-agywe-glass="field"] {
   background-color: rgba(var(--agywe-c, 20,20,20), var(--agywe-alpha, .55)) !important;
   background-image: none !important;
-  -webkit-backdrop-filter: var(--agywe-bf, blur(var(--agywe-blur, 18px)) saturate(1.25)) !important;
-  backdrop-filter: var(--agywe-bf, blur(var(--agywe-blur, 18px)) saturate(1.25)) !important;
+  -webkit-backdrop-filter: var(--agywe-bf, var(--agywe-pbf, blur(var(--agywe-blur, 18px)) saturate(1.25))) !important;
+  backdrop-filter: var(--agywe-bf, var(--agywe-pbf, blur(var(--agywe-blur, 18px)) saturate(1.25))) !important;
 }
 html.agywe-on [data-agywe-glass="field"] { background-color: rgba(var(--agywe-c, 20,20,20), calc(var(--agywe-alpha, .55) * 1.2)) !important; }
 html.agywe-on [data-agywe-glass="inner"] {
@@ -151,9 +151,63 @@ html.agywe-on :is([data-agywe-glass="dialog"], [data-agywe-glass="float"]) { box
 html.agywe-on.agywe-darktext :is([data-agywe-glass="dialog"], [data-agywe-glass="float"]) { box-shadow: 0 10px 32px rgba(0,0,0,.16), inset 0 0 0 1px rgba(0,0,0,.10) !important; }
 html.agywe-on.agywe-border [data-agywe-glass="panel"] { box-shadow: inset 0 0 0 1px rgba(255,255,255,.10) !important; }
 html.agywe-on.agywe-shadow body {
-  text-shadow: 0 0 1px rgba(var(--agywe-halo, 255,255,255), var(--agywe-halo-a, .6)),
-               0 0 3px rgba(var(--agywe-halo, 255,255,255), calc(var(--agywe-halo-a, .6) * .85)),
-               0 0 8px rgba(var(--agywe-halo, 255,255,255), calc(var(--agywe-halo-a, .6) * .5));
+  text-shadow: 0 1px 1.5px rgba(var(--agywe-halo, 255,255,255), min(1, calc(var(--agywe-halo-a, .6) * 1.15))),
+               0 0 3px rgba(var(--agywe-halo, 255,255,255), calc(var(--agywe-halo-a, .6) * .95)),
+               0 0 8px rgba(var(--agywe-halo, 255,255,255), calc(var(--agywe-halo-a, .6) * .55));
+}
+/* ---- v0.12.2 文字清晰度增强：思考过程 / 次要灰字 / 展开侧边栏防看不清 ---- */
+html.agywe-on.agywe-readfix:not(.agywe-darktext) {
+  --muted-foreground: rgba(232, 238, 249, .88);
+  --color-muted-foreground: rgba(232, 238, 249, .88);
+  --secondary-foreground: rgba(242, 246, 253, .94);
+  --sidebar-foreground: rgba(245, 248, 255, .96);
+  --text-secondary: rgba(232, 238, 249, .88);
+  --text-muted: rgba(224, 231, 245, .86);
+}
+html.agywe-on.agywe-readfix.agywe-darktext {
+  --muted-foreground: rgba(34, 40, 54, .88);
+  --color-muted-foreground: rgba(34, 40, 54, .88);
+  --secondary-foreground: rgba(24, 28, 38, .94);
+  --sidebar-foreground: rgba(20, 24, 34, .96);
+  --text-secondary: rgba(34, 40, 54, .88);
+  --text-muted: rgba(42, 48, 64, .86);
+}
+/* 思考过程 / 折叠思考块 / 次要说明文字：防止低透明度灰字被壁纸冲淡 */
+html.agywe-on.agywe-readfix:not(.agywe-darktext) :is(.text-muted-foreground, [class*="text-muted"], [class*="text-foreground/"], [class*="thought" i], [class*="reasoning" i], [data-thought], [data-thinking]) {
+  color: rgba(234, 240, 251, .90) !important;
+}
+html.agywe-on.agywe-readfix.agywe-darktext :is(.text-muted-foreground, [class*="text-muted"], [class*="text-foreground/"], [class*="thought" i], [class*="reasoning" i], [data-thought], [data-thinking]) {
+  color: rgba(30, 35, 48, .90) !important;
+}
+html.agywe-on.agywe-readfix :is([class*="thought" i], [class*="reasoning" i], [data-thought], [data-thinking]):not([disabled]) {
+  opacity: .94 !important;
+}
+html.agywe-on.agywe-readfix.agywe-glasson :is([class*="thought" i][class*="prose"], [class*="thought" i][class*="markdown"], [class*="reasoning" i][class*="prose"], [data-thought] :is([class*="prose"], [class*="markdown"]), details[open] > :not(summary)) {
+  background-color: rgba(var(--agywe-c, 18,20,28), var(--agywe-thought-a, .42)) !important;
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+html.agywe-on.agywe-readfix.agywe-glasson.agywe-darktext :is([class*="thought" i][class*="prose"], [class*="thought" i][class*="markdown"], [class*="reasoning" i][class*="prose"], [data-thought] :is([class*="prose"], [class*="markdown"]), details[open] > :not(summary)) {
+  background-color: rgba(250, 251, 254, var(--agywe-thought-a, .56)) !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+}
+/* 展开侧边栏与侧边栏列表项：深色主题保底可读底衬+锐利阴影；浅色主题防止白字错配 */
+html.agywe-on.agywe-readfix.agywe-glasson .bg-sidebar[data-agywe-glass="panel"],
+html.agywe-on.agywe-readfix.agywe-glasson [aria-label*="侧边栏"][data-agywe-glass="panel"],
+html.agywe-on.agywe-readfix.agywe-glasson [aria-label*="sidebar" i][data-agywe-glass="panel"] {
+  background-color: rgba(var(--agywe-c, 18,20,28), var(--agywe-sidebar-a, max(var(--agywe-alpha, .55), .36))) !important;
+}
+html.agywe-on.agywe-readfix:not(.agywe-darktext) :is(.bg-sidebar, [aria-label*="侧边栏"], [aria-label*="sidebar" i], [class*="agy-sid"]) {
+  color: rgba(244, 247, 255, .96);
+  text-shadow: 0 1px 2px rgba(0,0,0,.78), 0 0 6px rgba(0,0,0,.45);
+}
+html.agywe-on.agywe-readfix.agywe-darktext :is(.bg-sidebar, [aria-label*="侧边栏"], [aria-label*="sidebar" i], [class*="agy-sid"]) {
+  color: rgba(22, 26, 36, .95);
+  text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 6px rgba(255,255,255,.55);
+}
+html.agywe-on.agywe-readfix.agywe-darktext :is(.bg-sidebar, [aria-label*="侧边栏"], [aria-label*="sidebar" i]) :is(a, button, span, div, p, li):not([class*="badge"]):not([class*="primary"]) {
+  color: inherit;
 }
 #agywe-avatars {
   position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; margin: 0 !important; padding: 0 !important;
@@ -388,6 +442,11 @@ html.agywe-darktext #agywe-dock .agywe-card { color: #1b1e27; background: rgba(2
 #agywe-menu button:hover, #agywe-menu button:focus-visible { background: rgba(var(--agywe-acc, 143,180,255), .26); }
 #agywe-menu button kbd { font: 11px Consolas, monospace; opacity: .55; }
 #agywe-menu hr { border: 0; height: 1px; background: rgba(255,255,255,.1); margin: 4px 6px; }
+html.agywe-darktext #agywe-menu {
+  color: #1b1e27; background: rgba(250,250,254,.92) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,0,0,.10);
+}
+html.agywe-darktext #agywe-menu hr { background: rgba(0,0,0,.1); }
 
 /* ---- 快速切换 / 打字连击 ---- */
 #agywe-quick {
@@ -534,7 +593,7 @@ html.agywe-hideall #agywe-jump, html.agywe-hideall #agywe-cc { display: none !im
   -webkit-app-region: no-drag !important; app-region: no-drag !important;
 }
 #agywe-buddy.agywe-hold { cursor: grabbing; }
-#agywe-buddy .agywe-bwrap { position: relative; width: 100%; aspect-ratio: 384 / 416; pointer-events: none; }
+#agywe-buddy .agywe-bwrap { position: relative; width: 100%; aspect-ratio: 576 / 960; pointer-events: none; }
 #agywe-buddy video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; pointer-events: none; transition: opacity .14s linear; background: transparent; }
 #agywe-buddy video.on { opacity: 1; }
 #agywe-buddy .agywe-bbub {
@@ -1075,10 +1134,33 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       }
       savedInline.delete(el);
     }
-    const BLUR_VAL = "var(--agywe-bf, blur(var(--agywe-blur, 18px)) saturate(1.25))";
+    const BLUR_VAL = "var(--agywe-bf, var(--agywe-pbf, blur(var(--agywe-blur, 18px)) saturate(1.25)))";
     // 弹窗 / 浮层至少模糊 16px：就算界面模糊调成 0，后面的字也不会和浮层里的字叠在一起
     const DIALOG_BLUR = "var(--agywe-bf, blur(var(--agywe-dblur, 16px)) saturate(1.2))";
     const FLOAT_BLUR = "var(--agywe-bf, blur(var(--agywe-fblur, 16px)) saturate(1.2))";   // 低配模式把 --agywe-bf 设成 none
+    // Windows Electron 已知问题：给包含 -webkit-app-region: drag 的标题栏容器套 backdrop-filter 会破坏窗口拖动命中测试
+    const dragRegionCache = new WeakMap();
+    function hasDragRegion(el) {
+      const cached = dragRegionCache.get(el);
+      if (cached !== undefined) return cached;
+      let hit = false;
+      try {
+        const cs = getComputedStyle(el);
+        const ar = cs.getPropertyValue("-webkit-app-region") || cs.getPropertyValue("app-region");
+        if (ar && ar !== "none" && ar !== "no-drag") hit = true;
+        else {
+          const r = el.getBoundingClientRect();
+          if (r.top <= 4 && r.height <= 48 && el.querySelectorAll) {
+            for (const ch of el.querySelectorAll("*")) {
+              const cr = getComputedStyle(ch).getPropertyValue("-webkit-app-region") || getComputedStyle(ch).getPropertyValue("app-region");
+              if (cr && cr !== "none" && cr !== "no-drag") { hit = true; break; }
+            }
+          }
+        }
+      } catch { }
+      dragRegionCache.set(el, hit);
+      return hit;
+    }
     function paint(el, kind) {
       if (!origBorder.has(el)) {
         try { const cs = getComputedStyle(el); origBorder.set(el, parseFloat(cs.borderTopWidth) > 0 ? toRgba(cs.borderTopColor) : null); } catch { origBorder.set(el, null); }
@@ -1109,7 +1191,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       else unset("border-color");
       set("background-color", `rgba(var(--agywe-c, 20,20,20), ${a})`);
       set("background-image", "none");
-      if (kind === "inner" || kind === "icon") { unset("-webkit-backdrop-filter"); unset("backdrop-filter"); }
+      if (kind === "inner" || kind === "icon" || hasDragRegion(el)) { unset("-webkit-backdrop-filter"); unset("backdrop-filter"); }
       else if (kind === "dialog") { set("-webkit-backdrop-filter", DIALOG_BLUR); set("backdrop-filter", DIALOG_BLUR); }
       else if (kind === "float") { set("-webkit-backdrop-filter", FLOAT_BLUR); set("backdrop-filter", FLOAT_BLUR); }
       else { set("-webkit-backdrop-filter", BLUR_VAL); set("backdrop-filter", BLUR_VAL); }
@@ -1147,17 +1229,17 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
     function scanGlassInner() {
       const W = innerWidth, H = innerHeight, VA = W * H;
       if (!VA) return;
-      // 1) 网格取样：大块不透明背景
-      const cols = 10, rows = 8;
+      // 1) 网格取样：大块不透明背景（v0.12.2 精简为 6×5 网格，减少 60% elementsFromPoint 开销同时覆盖所有面板与侧边栏）
+      const cols = 6, rows = 5;
       const pts = [];
       for (let i = 0; i < cols; i++) {
         const x = (i + 0.5) * W / cols;
         for (let j = 0; j < rows; j++) pts.push([x, (j + 0.5) * H / rows]);
         // 顶部标题栏 / 底部状态栏这种细长条，网格中心点扫不到
-        pts.push([x, 10], [x, 26], [x, H - 10]);
+        pts.push([x, 12], [x, H - 12]);
       }
-      // 左上角（侧栏开关那一条）和左下角：细长条，网格点容易漏
-      pts.push([12, 12], [40, 18], [80, 18], [140, 18], [200, 18], [12, H - 14], [60, H - 14]);
+      // 左上角、左右侧边栏与左下角关键采样点
+      pts.push([12, 12], [60, 18], [140, 18], [16, H * 0.45], [W - 24, H * 0.45], [16, H - 14]);
       {
         // v0.10.2：同一个元素会出现在几十个取样点的命中栈里（外层容器尤其如此），一次扫描里只看一遍
         const seenPt = new Set();
@@ -1233,7 +1315,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       // 4) 气泡 / 卡片 / 小按钮：网格点和输入框都碰不到的中小块。只看新出现的 / class 变过的，20 秒轮一遍全量
       try { scanChips(W, H, VA); } catch { }
       try { sweepIcons(); } catch { }
-      if (Date.now() - lastFull > 5000) { lastFull = Date.now(); pseSig = new WeakMap(); try { revalidate(); } catch { } }
+      if (Date.now() - lastFull > 15000) { lastFull = Date.now(); pseSig = new WeakMap(); try { revalidate(); } catch { } }
       normalizeGlass();
       for (const el of marked) if (!el.isConnected) { marked.delete(el); baseKind.delete(el); holeHosts.delete(el); }
     }
@@ -1278,12 +1360,16 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
     const rgbOf = (s) => { const n = String(s || "").split(",").map(Number); return n.length === 3 && n.every(isFinite) ? n : null; };
     function sameColor(a, b) { const x = rgbOf(a), y = rgbOf(b); return !!(x && y) && Math.abs(x[0] - y[0]) + Math.abs(x[1] - y[1]) + Math.abs(x[2] - y[2]) < 12; }
     function isForced(el) { const f = (cfg && cfg.glassForce) || []; return f.length > 0 && f.some((s) => safeMatches(el, s)); }
-    // 小块的底色可能是悬停 / 选中状态造成的：先撤掉我们的样式看一眼它现在本来的颜色，已经没底色的就放开
+    // 小块的底色可能是悬停 / 选中状态造成的：只抽检易变的小块（chip/icon/float），避免整页重排造成卡顿
     function revalidate() {
-      const list = [...marked].filter((el) => el.isConnected && baseKind.get(el) !== "content" && !isForced(el) && !isHot(el));
+      const list = [...marked].filter((el) => {
+        if (!el.isConnected || isForced(el) || isHot(el)) return false;
+        const k = baseKind.get(el);
+        return k === "chip" || k === "icon" || k === "float";
+      });
       if (!list.length) return;
       const VA = innerWidth * innerHeight;
-      const small = list.filter((el) => { const r = el.getBoundingClientRect(); return r.width * r.height < VA * 0.2; }).slice(0, 300);
+      const small = list.filter((el) => { const r = el.getBoundingClientRect(); return r.width * r.height < VA * 0.18; }).slice(0, 80);
       const saved = small.map((el) => [el, el.style.getPropertyValue("background-color"), el.style.getPropertyPriority("background-color"), el.style.getPropertyValue("background-image"), el.style.getPropertyPriority("background-image"), el.getAttribute("data-agywe-glass")]);
       for (const [el] of saved) { el.style.removeProperty("background-color"); el.style.removeProperty("background-image"); el.removeAttribute("data-agywe-glass"); }
       const now = small.map((el) => bgOf(getComputedStyle(el)));
@@ -1376,11 +1462,20 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       pseSig.set(el, sig);
       if (v) el.setAttribute("data-agywe-pse", v);
     }
+    let lastSweep = 0;
     function sweepIcons() {
+      const now = Date.now();
+      if (now - lastSweep < 8000) return;
+      lastSweep = now;
+      const W = innerWidth, H = innerHeight;
       let n = 0;
       for (const el of document.querySelectorAll('button, [role="button"], .agy-button')) {
-        if (++n > 500) break;
-        try { pseudoFix(el); } catch { }
+        if (++n > 260) break;
+        try {
+          const r = el.getBoundingClientRect();
+          if (r.bottom < 0 || r.top > H || r.right < 0 || r.left > W) continue;
+          pseudoFix(el);
+        } catch { }
       }
     }
     function decideEl(el, W, H, VA) {
@@ -1428,23 +1523,30 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       }
       for (const [el, kind, c] of list) mark(el, kind, c);
     }
-    // 全页扫描（v0.10.2 改成增量）：class 没变、20 秒内看过的不再重复算样式
+    // 全页扫描（v0.12.2 增量 + 时间片限流，彻底消除 glass-slow 主线程卡顿）
     const chipSeen = new WeakMap();   // el -> [class, 上次看的时间]
+    let chipCursor = 0;
     function scanChips(W, H, VA) {
       const all = document.body ? document.body.getElementsByTagName("*") : [];
-      const n = Math.min(all.length, 8000), now = Date.now(), todo = [];
-      for (let i = 0; i < n; i++) {
-        const el = all[i];
+      const total = Math.min(all.length, 8000), now = Date.now(), todo = [], t0 = performance.now();
+      if (!total) return;
+      if (chipCursor >= total) chipCursor = 0;
+      let checked = 0;
+      while (checked < total) {
+        const el = all[chipCursor];
+        chipCursor = (chipCursor + 1) % total;
+        checked++;
         if (marked.has(el)) continue;
         const cn = el.getAttribute("class") || "";
         const seen = chipSeen.get(el);
-        if (seen && seen[0] === cn && now - seen[1] < 20000) continue;
+        if (seen && seen[0] === cn && now - seen[1] < 25000) continue;
         if (isOurs(el)) { chipSeen.set(el, [cn, now + 3600000]); continue; }
         const d = decideEl(el, W, H, VA);
         if (d === undefined) chipSeen.delete(el); else chipSeen.set(el, [cn, now]);
         if (d) todo.push(d);
+        if ((checked & 63) === 0 && performance.now() - t0 > 12) break;
       }
-      applyDecisions(todo);
+      if (todo.length) applyDecisions(todo);
     }
 
     // ---- v0.10.2 快速通道：页面新加的元素 / class 变了的元素，在下一帧画出来之前就处理掉 ----
@@ -1500,7 +1602,9 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
           }
           const hk = host ? baseKind.get(host) : null;
           // 和底下那层同色：它本来就是"看不见"的（比如侧栏里的分组标题、置顶条），跟着变透明，别单独成块
-          if (host && hk !== "clear" && sameColor(orig.get(el), orig.get(host)) && !isForced(el)) k = "clear";
+          // v0.12.2：保护侧边栏主面板不被误降级为 clear，防止展开侧边栏时文字失去阅读底衬
+          const keepSidebar = el.classList && el.classList.contains("bg-sidebar") && el.getBoundingClientRect().height > 200;
+          if (host && hk !== "clear" && sameColor(orig.get(el), orig.get(host)) && !isForced(el) && !keepSidebar) k = "clear";
           else if ((k === "panel" || k === "field" || k === "content" || k === "dialog" || k === "float") && host) {
             for (let p = host; p && p !== document.documentElement; p = p.parentElement) {
               const bk = marked.has(p) ? baseKind.get(p) : null;
@@ -1550,9 +1654,13 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
     function updateTheme(force) {
       let d = null;
       try {
-        const probe = document.querySelector(".text-foreground") || document.body;
-        const c = toRgba(getComputedStyle(probe).color);
-        if (c) { d = (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255 < 0.5; textRgb = [c.r, c.g, c.b]; }
+        // v0.12.2 多点回退探测主题文字深浅，跳过未渲染/全透明节点，防止浅色或深色主题误判
+        const probes = [document.querySelector(".text-foreground"), document.querySelector(".agy-shell"), document.querySelector("main"), document.body];
+        for (const probe of probes) {
+          if (!probe) continue;
+          const c = toRgba(getComputedStyle(probe).color);
+          if (c && c.a >= 0.4) { d = (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255 < 0.5; textRgb = [c.r, c.g, c.b]; break; }
+        }
       } catch { }
       if (d === null) return;
       if (d === darkText && !force) return;
@@ -1580,6 +1688,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       root.classList.toggle("agywe-on", on);
       root.classList.toggle("agywe-glasson", on && !!cfg.glass);
       root.classList.toggle("agywe-shadow", on && !!cfg.textShadow);
+      root.classList.toggle("agywe-readfix", on && cfg.textBoost !== false);
       root.classList.toggle("agywe-border", on && cfg.glassBorder !== false);
       const tint = cfg && cfg.glassTintOn ? hexToRgb(cfg.glassTint) : null;
       root.classList.toggle("agywe-tint", on && !!tint);
@@ -1589,6 +1698,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       root.classList.toggle("agywe-hideall", hideAll);
       root.classList.toggle("agywe-lowspec", !!(cfg && cfg.lowSpec));
       if (cfg && cfg.lowSpec) root.style.setProperty("--agywe-bf", "none"); else root.style.removeProperty("--agywe-bf");
+      if (cfg && !(Number(cfg.blur) > 0)) root.style.setProperty("--agywe-pbf", "none"); else root.style.removeProperty("--agywe-pbf");
       if (font) root.style.setProperty("--agywe-font", font); else root.style.removeProperty("--agywe-font");
       root.style.setProperty("--agywe-alpha", String(cfg ? cfg.panelOpacity : .55));
       root.style.setProperty("--agywe-chip", String(cfg && cfg.bubbleOpacity != null ? cfg.bubbleOpacity : .45));
@@ -2122,9 +2232,10 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
     function applyFxCfg() {
       if (!fxOn()) { if (fx.cv) { try { fx.cv.remove(); } catch { } fx.cv = null; fx.ctx = null; fx.parts.length = 0; } return; }
       if (fx.cv && fx.cv.isConnected) return;
+      // 不再对全屏 100vw×100vh 特效画布调用 toTopLayer(showPopover)，避免顶层 popover 干扰 Windows 窗口拖动与边缘缩放命中测试；空闲时隐藏
       const cv = document.createElement("canvas"); cv.id = "agywe-fx"; cv.setAttribute("aria-hidden", "true");
+      cv.style.display = "none";
       document.documentElement.appendChild(cv);
-      toTopLayer(cv);
       fx.cv = cv; fx.ctx = cv.getContext("2d"); fxResize();
     }
     function fxResize() {
@@ -2136,7 +2247,11 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       if (cfg && cfg.fxRainbow) { fx.hue = (fx.hue + 7) % 360; return `hsl(${fx.hue},95%,72%)`; }
       return themeAccentHex() || (cfg && cfg.fxColor) || "#9ec5ff";
     }
-    function fxSpawn(p) { if (fx.parts.length < 600) fx.parts.push(p); if (!fx.raf) fx.raf = requestAnimationFrame(fxTick); }
+    function fxSpawn(p) {
+      if (fx.cv && fx.cv.style.display === "none") fx.cv.style.display = "block";
+      if (fx.parts.length < 600) fx.parts.push(p);
+      if (!fx.raf) fx.raf = requestAnimationFrame(fxTick);
+    }
     const R = Math.random;
     function fxClick(x, y) {
       const kind = cfg.clickFx, col = fxColor();
@@ -2186,7 +2301,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       c.globalAlpha = 1;
       fx.parts = keep;
       if (keep.length) fx.raf = requestAnimationFrame(fxTick);
-      else { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fx.cv.width, fx.cv.height); }
+      else { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fx.cv.width, fx.cv.height); fx.cv.style.display = "none"; }
     }
     window.addEventListener("pointerdown", (e) => { if (fx.cv && cfg && cfg.clickFx && cfg.clickFx !== "none" && e.button === 0 && !pick) fxClick(e.clientX, e.clientY); }, { capture: true, passive: true });
     window.addEventListener("pointermove", (e) => { if (fx.cv && cfg && cfg.trailFx && cfg.trailFx !== "none" && !pick) fxMove(e.clientX, e.clientY); }, { capture: true, passive: true });
@@ -3323,6 +3438,10 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       contrast.on = on; contrast.base = base;
       if (!on) {
         for (const k in base) root.style.setProperty(VAR[k], String(base[k]));
+        const sbFloor = cfg.textBoost !== false ? Math.max(base.panel, 0.34) : base.panel;
+        const thFloor = cfg.textBoost !== false ? Math.max(base.content, 0.44) : base.content;
+        root.style.setProperty("--agywe-sidebar-a", String(sbFloor));
+        root.style.setProperty("--agywe-thought-a", String(thFloor));
         contrast.need = false; contrast.ratio = null; contrast.panel = contrast.content = contrast.chip = null;
         sendContrast(); return;
       }
@@ -3342,6 +3461,12 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       const text = textRgb || (darkText ? [28, 28, 32] : [236, 238, 242]);
       const out = {};
       for (const k in base) { out[k] = Math.max(base[k], alphaFor(base[k], wall, tint, text, target)); root.style.setProperty(VAR[k], String(out[k])); }
+      // v0.12.2：为次要灰字（思考过程）与展开侧边栏额外计算可读性护航背板，防止亮色壁纸下白字或思考淡灰字看不清
+      const mutedText = darkText ? [58, 64, 78] : [206, 214, 228];
+      const sideMin = alphaFor(out.panel, wall, tint, mutedText, Math.min(target, 4.5));
+      const thoughtMin = alphaFor(Math.max(out.content, 0.28), wall, tint, mutedText, Math.min(target, 4.5));
+      root.style.setProperty("--agywe-sidebar-a", String(cfg.textBoost !== false ? Math.max(out.panel, sideMin) : out.panel));
+      root.style.setProperty("--agywe-thought-a", String(cfg.textBoost !== false ? Math.max(out.content, thoughtMin) : out.content));
       contrast.target = target;
       contrast.ratio = contrastAt(base.content, wall, tint, text);
       contrast.need = out.content > base.content + 0.004 || out.panel > base.panel + 0.004 || out.chip > base.chip + 0.004;
@@ -4104,8 +4229,8 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
     //   动作素材只读本机（自己选的文件夹 / 复制到 agywe\buddy 的 / 插件文件夹 buddy\ 里自带的（v0.12.0 原创角色）/ 猫猫插件自带的）
     // =====================================================================
     const BUDDY_POS = "agywe:buddy-pos";
-    const buddy = { root: null, wrap: null, vids: [], cur: -1, clip: "", loop: false, then: null, oneShot: false, tok: 0, info: null, stamp: -1, drag: null, pos: null, bubble: null, sayT: 0, idleT: 0, lastAct: Date.now(), err: 0, greeted: false, applying: false, again: false, moveDir: 0 };
-    function buddyCfg() { return { on: false, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0, ...((cfg && cfg.buddy) || {}) }; }
+    const buddy = { root: null, wrap: null, vids: [], cur: -1, clip: "", loop: false, then: null, oneShot: false, tok: 0, info: null, stamp: -1, drag: null, pos: null, bubble: null, sayT: 0, idleT: 0, lastAct: Date.now(), err: 0, greeted: false, applying: false, again: false, moveDir: 0, walk: null, lastIdleClip: "", workFlipAt: 0, workMode: "working", patTimes: [] };
+    function buddyCfg() { return { on: false, dir: "", size: 150, replaceDoll: false, idle: true, walk: true, greet: true, stamp: 0, ...((cfg && cfg.buddy) || {}) }; }
     function buddyActive() { return !!(buddy.root && buddy.root.isConnected && buddy.info && buddy.info.dir); }
     function buddyReplacing() { return buddyActive() && buddyCfg().replaceDoll === true; }
     function buddyHas(c) { return !!(buddy.info && Array.isArray(buddy.info.clips) && buddy.info.clips.includes(c)); }
@@ -4118,7 +4243,67 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       buddy.root.style.setProperty("right", clamp(p.r, -w * .3, Math.max(0, innerWidth - w * .7)) + "px", "important");
       buddy.root.style.setProperty("bottom", clamp(p.b, -h * .2, Math.max(0, innerHeight - h * .8)) + "px", "important");
     }
+    // v0.12.2：自主左右漫步巡逻控制（与拖拽/点击/Agent状态/隐藏完全互斥）
+    function buddyStopWalk(save, resumeIdle) {
+      const wk = buddy.walk;
+      if (!wk) return;
+      if (wk.raf) cancelAnimationFrame(wk.raf);
+      buddy.walk = null;
+      buddy.lastAct = Date.now();
+      if (save && buddy.pos) { try { localStorage.setItem(BUDDY_POS, JSON.stringify(buddy.pos)); } catch { } }
+      if (resumeIdle && buddyActive() && !buddy.oneShot && !buddy.drag) buddyUpdate();
+    }
+    function buddyStartWalk() {
+      if (!buddyActive() || buddy.walk || buddy.drag || buddy.oneShot || mood.state || agents > 0) return false;
+      if (!buddyHas("move-left") && !buddyHas("move-right")) return false;
+      const w = (buddy.root && buddy.root.offsetWidth) || buddyCfg().size || 150;
+      const margin = 16;
+      const minR = margin, maxR = Math.max(minR, innerWidth - w - margin);
+      if (maxR - minR < 90) return false;
+      const p = buddy.pos || (buddy.pos = buddyPosLoad());
+      p.r = clamp(p.r, minR, maxR);
+      const roomLeft = maxR - p.r;   // 向左走 -> right 增大
+      const roomRight = p.r - minR;  // 向右走 -> right 减小
+      let dir = 0; // -1 向左走, +1 向右走
+      if (roomLeft >= 110 && roomRight >= 110) dir = Math.random() < 0.5 ? -1 : 1;
+      else if (roomLeft >= 90) dir = -1;
+      else if (roomRight >= 90) dir = 1;
+      else return false;
+      const clip = dir < 0 ? bclip("move-left", "move-right") : bclip("move-right", "move-left");
+      const avail = dir < 0 ? roomLeft : roomRight;
+      const dist = clamp(120 + Math.random() * 240, 90, avail);
+      const speed = clamp(w * 0.65, 68, 148); // 按桌宠宽度自适应步速，脚底不打滑
+      const startR = p.r;
+      const targetR = clamp(startR - dir * dist, minR, maxR);
+      const totalDist = Math.abs(targetR - startR);
+      if (totalDist < 60) return false;
+      const totalMs = (totalDist / speed) * 1000;
+      const t0 = performance.now();
+      buddyPlay(clip, true);
+      const wk = { raf: 0, dir, startR, targetR, totalMs, t0 };
+      buddy.walk = wk;
+      const step = (now) => {
+        if (buddy.walk !== wk) return;
+        if (!buddyActive() || document.hidden || hideAll || buddy.drag || mood.state || agents > 0) { buddyStopWalk(true, false); return; }
+        const u = clamp((now - wk.t0) / wk.totalMs, 0, 1);
+        // 轻柔起停缓动，中间匀速迈步
+        const ease = u < 0.1 ? (u * u) / 0.1 * 0.5 : u > 0.9 ? 1 - ((1 - u) * (1 - u)) / 0.1 * 0.5 : 0.05 + (u - 0.1) * 1.125;
+        buddy.pos.r = wk.startR + (wk.targetR - wk.startR) * clamp(ease, 0, 1);
+        placeBuddy();
+        if (u >= 1) {
+          buddyStopWalk(true, false);
+          // 走到位后偶发一个小张望或开心表情，再回到 idle
+          if (Math.random() < 0.35 && buddyHas("look")) buddyPlay("look", false);
+          else buddyUpdate();
+          return;
+        }
+        wk.raf = requestAnimationFrame(step);
+      };
+      wk.raf = requestAnimationFrame(step);
+      return true;
+    }
     function removeBuddy() {
+      buddyStopWalk(false, false);
       clearInterval(buddy.idleT); buddy.idleT = 0;
       if (buddy.root) { for (const v of buddy.vids) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch { } } try { buddy.root.remove(); } catch { } }
       buddy.root = null; buddy.vids = []; buddy.cur = -1; buddy.clip = ""; buddy.bubble = null; buddy.oneShot = false; buddy.then = null;
@@ -4154,7 +4339,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       if (buddy.root && buddy.root.isConnected) { toTopLayer(buddy.root); return; }
       const root = document.createElement("div"); root.id = "agywe-buddy";
       const wrap = document.createElement("div"); wrap.className = "agywe-bwrap";
-      const mk = () => { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.disablePictureInPicture = true; v.setAttribute("aria-hidden", "true"); v.addEventListener("loadedmetadata", () => { if (v.videoWidth && v.videoHeight) wrap.style.aspectRatio = v.videoWidth + " / " + v.videoHeight; }); return v; };
+      const mk = () => { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.disablePictureInPicture = true; v.setAttribute("aria-hidden", "true"); v.addEventListener("loadedmetadata", () => { if (v.videoWidth && v.videoHeight) { wrap.style.aspectRatio = v.videoWidth + " / " + v.videoHeight; placeBuddy(); } }); return v; };
       buddy.vids = [mk(), mk()];
       wrap.append(...buddy.vids);
       const bub = document.createElement("div"); bub.className = "agywe-bbub";
@@ -4207,15 +4392,18 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
     function buddyBase() {
       if (mood.state === "attention") return bclip("waiting");
       if (mood.state === "error") return bclip("emotion-serious", "waiting");
-      if (agents > 0) return bclip("working", "reviewing");
+      if (agents > 0) return buddy.workMode === "reviewing" && buddyHas("reviewing") ? "reviewing" : bclip("working", "reviewing");
       return "idle";
     }
     function buddyUpdate() {
       if (!buddyActive() || buddy.oneShot || (buddy.drag && buddy.drag.moved)) return;
+      if (agents > 0 || mood.state) buddyStopWalk(true, false);
+      if (buddy.walk) return;
       buddyPlay(buddyBase(), true);
     }
     function buddyOnMood(state) {
       if (!buddyActive()) return;
+      buddyStopWalk(true, false);
       if (state === "done") buddyPlay(bclip("jump", "emotion-cheerful"), false, () => buddyPlay(bclip("emotion-cheerful", "wave"), false));
       else if (state === "attention") buddyPlay(bclip("emotion-frightened", "waiting"), false);
       else if (state === "error") buddyPlay(bclip("fail", "emotion-confused"), false);
@@ -4226,11 +4414,30 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       const vis = !document.hidden && !hideAll;
       const v = buddy.vids[buddy.cur];
       if (v) { if (!vis && !v.paused) { try { v.pause(); } catch { } } else if (vis && v.paused && !(v.ended && !v.loop)) v.play().catch(() => { }); }
-      if (!vis || buddy.oneShot || buddy.drag || mood.state || agents > 0 || buddyCfg().idle === false || (cfg && cfg.lowSpec)) return;
+      if (!vis) { buddyStopWalk(true, false); return; }
+      // Agent 工作时在 working（敲键盘）与 reviewing（翻看审阅）间自然切换
+      if (agents > 0 && !mood.state && !buddy.oneShot && !buddy.drag && buddyHas("working") && buddyHas("reviewing")) {
+        const now = Date.now();
+        if (!buddy.workFlipAt) buddy.workFlipAt = now;
+        if (now - buddy.workFlipAt > 28000 && Math.random() < 0.35) {
+          buddy.workFlipAt = now;
+          buddy.workMode = buddy.workMode === "working" ? "reviewing" : "working";
+          buddyPlay(buddy.workMode, true);
+        }
+        return;
+      }
+      if (buddy.oneShot || buddy.drag || buddy.walk || mood.state || agents > 0 || buddyCfg().idle === false || (cfg && cfg.lowSpec)) return;
       const quiet = Date.now() - buddy.lastAct;
-      if (quiet < 45000 || Math.random() > 0.18) return;
-      const pool = ["look", "look", "look", "emotion-starry", "emotion-confused", "wave", "emotion-shy"].filter(buddyHas);
-      if (pool.length) buddyPlay(pool[Math.floor(Math.random() * pool.length)], false);
+      if (quiet < 15000 || Math.random() > 0.34) return;
+      // 约 40% 概率自主左右小跑巡逻，60% 概率做自然可爱小动作（避免连续重复同一个）
+      if (buddyCfg().walk !== false && Math.random() < 0.42 && buddyStartWalk()) return;
+      const rawPool = ["look", "look", "emotion-starry", "emotion-cheerful", "emotion-shy", "emotion-confused", "wave", "jump"].filter(buddyHas);
+      const pool = rawPool.length > 1 ? rawPool.filter((c) => c !== buddy.lastIdleClip) : rawPool;
+      if (pool.length) {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        buddy.lastIdleClip = pick;
+        buddyPlay(pick, false);
+      }
     }
     function buddySay(text, ms, kind, sticky) {
       const b = buddy.bubble; if (!b || !text) return;
@@ -4249,12 +4456,15 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       const sub = moodSub();
       buddySay((mood.state === "done" ? "✓ " : mood.state === "attention" ? "! " : "✕ ") + moodText(mood.state) + (sub ? "\n" + sub : ""), 0, mood.state, true);
     }
-    const BUDDY_PAT = ["emotion-shy", "emotion-cheerful", "emotion-starry", "jump"];
+    const BUDDY_PAT = ["emotion-shy", "emotion-cheerful", "emotion-starry", "jump", "wave"];
+    const BUDDY_ANNOY = ["emotion-angry", "emotion-exasperated"];
     const BUDDY_LINES = ["喵～", "别戳啦，在干活呢", "摸摸头～", "今天也辛苦啦", "要不要歇一会儿？", "嘿嘿"];
+    const BUDDY_ANNOY_LINES = ["再戳我要生气啦！", "哎呀好痒，别老戳了嘛～", "哼！不理你啦！"];
     function bindBuddy(root) {
       root.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
         e.preventDefault(); e.stopPropagation();
+        buddyStopWalk(true, false);
         const p = buddy.pos || buddyPosLoad();
         buddy.drag = { x: e.clientX, y: e.clientY, r: p.r, b: p.b, moved: false, lastX: e.clientX };
         try { root.setPointerCapture(e.pointerId); } catch { }
@@ -4289,7 +4499,18 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
         buddy.clickT = setTimeout(() => {
           if (mood.state) { clearMood(); return; }
           try { sfxPlay("pet"); } catch { }
-          buddyPlay(BUDDY_PAT.filter(buddyHas)[Math.floor(Math.random() * BUDDY_PAT.filter(buddyHas).length)] || "idle", false);
+          const now = Date.now();
+          buddy.patTimes = buddy.patTimes.filter((t) => now - t < 10000);
+          buddy.patTimes.push(now);
+          if (buddy.patTimes.length >= 4 && BUDDY_ANNOY.some(buddyHas)) {
+            buddy.patTimes = [];
+            const ap = BUDDY_ANNOY.filter(buddyHas);
+            buddyPlay(ap[Math.floor(Math.random() * ap.length)], false);
+            buddySay(BUDDY_ANNOY_LINES[Math.floor(Math.random() * BUDDY_ANNOY_LINES.length)], 2800);
+            return;
+          }
+          const pp = BUDDY_PAT.filter(buddyHas);
+          buddyPlay(pp[Math.floor(Math.random() * pp.length)] || "idle", false);
           if (Math.random() < 0.45) buddySay(BUDDY_LINES[Math.floor(Math.random() * BUDDY_LINES.length)], 2600);
         }, 260);
       };
@@ -4461,6 +4682,7 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       else if (d.type === "agywe:mood-test") { toggleSettings(false); const m = String(d.mood || ""); setTimeout(() => setMood(m, "", true), 350); }
       else if (d.type === "agywe:want-context") sendContext(true);
       else if (d.type === "agywe:want-contrast") sendContrast();
+      else if (d.type === "agywe:want-zh-miss") { try { settingsFrame && settingsFrame.contentWindow && settingsFrame.contentWindow.postMessage({ type: "agywe:zh-miss", miss: [...zh.miss.keys()].slice(-120) }, ORIGIN); } catch { } }
       else if (d.type === "agywe:selftest") { try { settingsFrame && settingsFrame.contentWindow && settingsFrame.contentWindow.postMessage({ type: "agywe:selftest-page", r: selfReport() }, ORIGIN); } catch { } }
       else if (d.type === "agywe:noise") { noiseOp(String(d.op || "toggle"), String(d.kind || ""), !!d.quiet); try { settingsFrame && settingsFrame.contentWindow && settingsFrame.contentWindow.postMessage({ type: "agywe:noise-state", playing: noise.playing, kind: noise.type }, ORIGIN); } catch { } }
       else if (d.type === "agywe:noise-ask") { try { settingsFrame && settingsFrame.contentWindow && settingsFrame.contentWindow.postMessage({ type: "agywe:noise-state", playing: noise.playing, kind: noise.type }, ORIGIN); } catch { } }
@@ -6725,7 +6947,96 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       "Reset Zoom": "重置缩放",
       "Focus Input": "聚焦输入框",
       "Ultra": "Ultra",
-      "Pro": "Pro"
+      "Pro": "Pro",
+      // v0.12.2：补全 Antigravity 新版新增界面文字（插件市场 / 设置新项 / 思考与步骤 / 排队消息 / 内置浏览器等）
+      "File Viewer header": "文件查看器标题栏",
+      "Search or enter a URL": "搜索或输入网址",
+      "Expand message": "展开消息",
+      "Collapse message": "收起消息",
+      "Downloading Update": "正在下载更新",
+      "Update Downloaded": "更新已下载",
+      "Cancel (Ctrl+D)": "取消（Ctrl+D）",
+      "Scrollable table": "可滚动表格",
+      "For your hardest, long-horizon tasks": "适用于最复杂、长链路的任务",
+      "Offloads routine steps to a faster executor. Same quality, fewer tokens used.": "将常规步骤交由更快的执行器处理。同样质量，消耗更少 token。",
+      "For speed and efficiency in execution tasks": "注重执行任务的速度与效率",
+      "Checking task": "正在检查任务",
+      "Checked task": "已检查任务",
+      "Task Log": "任务日志",
+      "Collapse queued messages": "收起排队消息",
+      "Expand queued messages": "展开排队消息",
+      "Queued message sent": "排队消息已发送",
+      "Message queued. Sends after agent finishes working. Actions available: Send Now, Edit, Delete": "消息已加入队列，将在 Agent 完成后发送。可用操作：立即发送、编辑、删除",
+      "Model cannot be changed while the agent is running": "Agent 运行时无法切换模型",
+      "Permissions cannot be changed while the agent is running": "Agent 运行时无法修改权限",
+      "Waiting for subagent": "正在等待子 Agent",
+      "Fold code block": "折叠代码块",
+      "Unfold code block": "展开代码块",
+      "Close Preview": "关闭预览",
+      "Hide plan": "隐藏计划",
+      "This Computer": "本机电脑",
+      "You're viewing a blank page. View site information": "当前为空白页。查看网站信息",
+      "Your connection to this site is not secure. View site information": "你与此网站的连接不安全。查看网站信息",
+      "Receive product updates, tips, and promotions from Google Antigravity via email.": "通过邮件接收来自 Google Antigravity 的产品更新、使用技巧和优惠活动。",
+      "You can upgrade to a Google AI Ultra plan to receive higher rate limits.": "你可以升级到 Google AI Ultra 套餐以获得更高的速率限制。",
+      "Configure agent execution, queued message delivery, and permissions.": "配置 Agent 执行、排队消息发送与权限。",
+      "Simplified interface for research, writing, and everyday tasks.": "适合研究、写作与日常任务的简洁界面。",
+      "Full interface for coding, developer tools, and managing agents.": "适合编程、开发者工具与管理 Agent 的完整界面。",
+      "Show system notifications when your action is needed or the agent finishes.": "在需要你处理或 Agent 完成任务时显示系统通知。",
+      "Play a sound when your action is needed or the agent finishes.": "在需要你处理或 Agent 完成任务时播放提示音。",
+      "Browse and enable plugins from the Build With Google catalog.": "浏览并启用 Build With Google 目录中的插件。",
+      "Configure built-in browser, link opening, and browser subagent preferences.": "配置内置浏览器、链接打开方式与浏览器子 Agent 偏好设置。",
+      "Folder where files downloaded in the built-in browser are saved.": "内置浏览器下载文件的保存文件夹。",
+      "Clear visited URLs and autocomplete suggestions from the built-in browser.": "清除内置浏览器的访问记录和自动补全建议。",
+      "Remote Control Issue": "远程控制问题",
+      "General Feedback": "常规反馈",
+      "Steps to reproduce the issue": "复现问题的步骤",
+      "Expected behavior": "预期表现",
+      "Any error messages": "相关错误信息",
+      "Any relevant information": "其他相关信息",
+      "Describe the bug you encountered...": "请描述你遇到的问题…",
+      "Steps to Reproduce": "复现步骤",
+      "Please list the steps to reproduce the issue": "请列出复现该问题的步骤",
+      "Attach a screenshot (optional)": "附加截图（可选）",
+      "Attach Antigravity server logs": "附加 Antigravity 服务日志",
+      "Legal Help": "法律帮助",
+      "to ask for content changes for legal reasons.": "以出于法律原因申请更改内容。",
+      "Keyboard shortcuts for quick navigation and control.": "用于快速导航与控制的键盘快捷键。",
+      "Search shortcuts...": "搜索快捷键…",
+      "Search shortcuts": "搜索快捷键",
+      "Plugins in Featured": "精选插件",
+      "Build with Google": "用 Google 构建",
+      "Google Workspace": "Google Workspace",
+      "Design, Creative & Media": "设计、创意与媒体",
+      "Science": "科研与科学",
+      "Productivity & Project Management": "效率与项目管理",
+      "Cloud Hosting & Deployment": "云托管与部署",
+      "Developer Tools": "开发者工具",
+      "Business": "商业与办公",
+      "More Plugins": "更多插件",
+      "See more": "查看更多",
+      "Connect to Google Workspace, including Docs, Sheets, Slides, Drive, Calendar, and Gmail.": "连接 Google Workspace，包括 Docs、Sheets、Slides、Drive、Calendar 与 Gmail。",
+      "Build on Google's developer platforms, including Android, Chrome, Gemini, and Google Cloud.": "基于 Google 开发者平台构建，包括 Android、Chrome、Gemini 与 Google Cloud。",
+      "Design, creative, and media tools.": "设计、创意与媒体工具。",
+      "Agent skills, databases, and interactive viewers for scientific research.": "面向科学研究的 Agent 技能、数据库与交互式查看器。",
+      "Plan work, track issues, sign documents, and manage your notes and files.": "规划工作、跟踪问题、签署文档并管理你的笔记和文件。",
+      "Deploy and host your apps, sites, and their backends.": "部署并托管你的应用、网站及后端服务。",
+      "APIs, services, and tools to build, test, secure, and run your apps.": "用于构建、测试、加固和运行应用的 API、服务与工具。",
+      "Payments, CRM, accounting, data, identity, customer support, marketing, and workflow automation.": "支付、CRM、财务、数据、身份认证、客服、营销与工作流自动化。",
+      "Read, draft, and edit docs.": "阅读、起草和编辑文档。",
+      "Read, write, and format spreadsheets.": "读取、编写和格式化电子表格。",
+      "Read, edit, and export presentations.": "阅读、编辑和导出演示文稿。",
+      "Search, upload, download, and share files.": "搜索、上传、下载和共享文件。",
+      "Check availability, schedule events, and RSVP.": "查看空闲时间、安排日程并回复邀请。",
+      "Search, read, draft, and send emails in Gmail.": "在 Gmail 中搜索、阅读、起草和发送邮件。",
+      "Core tools and knowledge required to develop for Android.": "开发 Android 应用所需的核心工具与知识。",
+      "Using the Google Antigravity Python SDK to build AI agents": "使用 Google Antigravity Python SDK 构建 AI Agent",
+      "Reliable automation, in-depth debugging, and performance analysis in Chrome using Chrome DevTools and Puppeteer": "使用 Chrome DevTools 与 Puppeteer 在 Chrome 中进行可靠的自动化、深度调试与性能分析",
+      "Create, edit, review, resize, and brand-check Canva designs with the Canva MCP server.": "通过 Canva MCP 服务器创建、编辑、审阅、调整尺寸并检查 Canva 设计。",
+      "Antigravity for science highlights, and an overview of the main science plugins.": "Antigravity 科研亮点与主要科研插件概览。",
+      "Search scientific papers, clinical trials, FDA records, and historical texts.": "搜索科研论文、临床试验、FDA 记录与历史文献。",
+      "Search European procurement data and manage your tender pipeline.": "搜索欧洲采购数据并管理你的投标流程。",
+      "Using browser": "使用浏览器"
     };
     const ZH_U = { s: "秒", sec: "秒", secs: "秒", second: "秒", seconds: "秒", m: "分钟", min: "分钟", mins: "分钟", minute: "分钟", minutes: "分钟", h: "小时", hr: "小时", hrs: "小时", hour: "小时", hours: "小时", d: "天", day: "天", days: "天", w: "周", wk: "周", wks: "周", week: "周", weeks: "周", mo: "个月", month: "个月", months: "个月", y: "年", yr: "年", yrs: "年", year: "年", years: "年" };
     // "6d 22h" / "3 hours" / "a minute" -> "6 天 22 小时" / "3 小时" / "1 分钟"；有对不上的单位就不翻
@@ -6736,13 +7047,58 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       if (bad || !hit || /[a-z]/i.test(t)) return null;
       return t;
     }
+    // v0.12.2：把 "Explored files, ran commands, edited files" 这类动态组合动作摘要通用翻成中文
+    const ZH_ACT_SEG = {
+      "explored file": "查看了文件", "explored files": "查看了文件",
+      "read file": "读取了文件", "read files": "读取了文件",
+      "edited file": "编辑了文件", "edited files": "编辑了文件",
+      "created file": "创建了文件", "created files": "创建了文件",
+      "deleted file": "删除了文件", "deleted files": "删除了文件",
+      "ran command": "运行了命令", "ran commands": "运行了命令",
+      "searched web": "搜索了网页", "searched files": "搜索了文件", "searched codebase": "搜索了代码库",
+      "used browser": "使用了浏览器", "called tool": "调用了工具", "called tools": "调用了工具"
+    };
+    function zhActSummary(t) {
+      const parts = t.split(/\s*,\s*/);
+      if (!parts.length) return null;
+      const out = [];
+      for (const p of parts) {
+        const z = ZH_ACT_SEG[p.toLowerCase()];
+        if (!z) return null;
+        out.push(z);
+      }
+      return out.join("、");
+    }
     const DUR = String.raw`(?:(?:\d+(?:\.\d+)?|an?)\s*[a-z]+(?:,?\s+(?:and\s+)?)?)+`;
     const ZH_RE = [
       [/^(?:just now|now)$/i, () => "刚刚"],
       [new RegExp("^(" + DUR + ")\\s+ago$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "前" : null; }],
       [new RegExp("^resets?\\s+in\\s+(" + DUR + ")$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "后重置" : null; }],
       [new RegExp("^in\\s+(" + DUR + ")$", "i"), (m) => { const d = zhDur(m[1]); return d ? d + "后" : null; }],
-      [/^Turn (\d+) of (\d+)$/, (m) => "第 " + m[1] + " 轮，共 " + m[2] + " 轮"],
+      [/^Turn (\d+) of (\d+)$/i, (m) => "第 " + m[1] + " 轮，共 " + m[2] + " 轮"],
+      // v0.12.2：新版思考计时、浏览器状态、步骤计划、工具数、模型/环境锁定、插件市场通用规则
+      [/^Thinking\s*\(([^)]+)\)(?:\.\.\.|…)?$/i, (m) => { const d = zhDur(m[1]); return "正在思考（" + (d || m[1]) + "）…"; }],
+      [/^Still thinking,\s*(.+?)\.?$/i, (m) => { const d = zhDur(m[1]); return "仍在思考，" + (d || m[1]); }],
+      [/^Using browser\s*·\s*(.+)$/i, (m) => "使用浏览器 · " + zhIn(m[1])],
+      [/^(\d+)\s+tools?\s+enabled$/i, (m) => "已启用 " + m[1] + " 个工具"],
+      [/^Plan,\s*(\d+)\s+of\s+(\d+)\s+steps?\s+done$/i, (m) => "计划，已完成 " + m[1] + " / " + m[2] + " 步"],
+      [/^(\d+)\/(\d+)\s+steps?\.\s*(Show|Hide)\s+plan$/i, (m) => m[1] + "/" + m[2] + " 步 · " + (m[3].toLowerCase() === "hide" ? "隐藏计划" : "查看计划")],
+      [/^Where the agent runs,\s*current:\s*(.+)$/i, (m) => "Agent 运行位置，当前：" + zhIn(m[1])],
+      [/^Model:\s*(.+?),\s*Model cannot be changed while the agent is running$/i, (m) => "模型：" + zhIn(m[1]) + "（Agent 运行时无法切换）"],
+      [/^Agent permissions preset:\s*(.+?),\s*Permissions cannot be changed while the agent is running$/i, (m) => "Agent 权限预设：" + zhIn(m[1]) + "（Agent 运行时无法修改）"],
+      [/^Your plan:\s*(.+)$/i, (m) => "当前套餐：" + zhIn(m[1])],
+      [/^Open Subagent:\s*(.+)$/i, (m) => "打开子 Agent：" + m[1]],
+      [/^Checking task\s+(.+)$/i, (m) => "正在检查任务：" + m[1]],
+      [/^(.+?)\s*·\s*Exited with code (\d+)$/i, (m) => m[1] + " · 退出码 " + m[2]],
+      [/^(?:Explored|Read|Edited|Created|Deleted|Ran|Searched|Used|Called)\s+[a-z\s,]+$/i, (m) => zhActSummary(m[0])],
+      [/^See more in (.+)$/i, (m) => "查看更多：" + zhIn(m[1])],
+      [/^See (\d+) more$/i, (m) => "查看其余 " + m[1] + " 项"],
+      [/^More actions for (.+)$/i, (m) => "更多操作：" + m[1]],
+      [/^Details for (.+)$/i, (m) => "查看详情：" + m[1]],
+      [/^Install ([A-Z0-9][\w .+-]{1,36})$/, (m) => "安装 " + m[1]],
+      [/^Add ([A-Z0-9][\w .+-]{1,30})$/, (m) => "添加 " + zhIn(m[1])],
+      [/^(.+?) now available!$/i, (m) => m[1] + " 现已上线！"],
+      [/^(.+?) will be removed from Antigravity on (.+?)\.?$/i, (m) => m[1] + " 将于 " + m[2] + " 从 Antigravity 移除。"],
       // v0.10.5 快捷键页
       [/^Shortcut (.+?) for (.+)$/, (m) => "快捷键 " + m[1] + "：" + zhIn(m[2])],
       [/^Remove shortcut (.+?) for (.+)$/, (m) => "删除「" + zhIn(m[2]) + "」的快捷键 " + m[1]],
@@ -6777,32 +7133,57 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
       [/^(\d+) (files?|changes?|items?|results?|messages?|conversations?|projects?|skills?|rules?|plugins?|tasks?)$/i, (m) => m[1] + " 个" + ({ file: "文件", change: "改动", item: "项目", result: "结果", message: "消息", conversation: "对话", project: "项目", skill: "技能", rule: "规则", plugin: "插件", task: "任务" })[m[2].toLowerCase().replace(/s$/, "")]],
       [/^(\d+(?:\.\d+)?\s*(?:s|m|h|d|w|mo|y))(?:\s+\d+(?:\.\d+)?\s*(?:s|m|h|d|w|mo|y))*$/, (m) => zhDur(m[0])]
     ];
-    const ZH_EXCL = 'pre, code, kbd, samp, textarea, input, select[multiple], script, style, noscript, title, svg, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], .xterm, .monaco-editor, .cm-editor, .agy-user-bubble, [class*="markdown"], [class*="prose"], [data-agywe-noi18n], #antigravity-catgirl-dock';
+    const ZH_EXCL = 'pre, code, kbd, samp, textarea, input, select[multiple], script, style, noscript, title, svg, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], .xterm, .monaco-editor, .cm-editor, .agy-user-bubble, [class*="markdown"], [class*="prose"], [class*="thought" i] p, [data-agywe-noi18n], #antigravity-catgirl-dock';
     const ZH_ATTRS = ["placeholder", "aria-label", "title", "data-placeholder", "aria-placeholder", "data-tooltip"];
     const ZH_ATTR_SEL = ZH_ATTRS.map((a) => "[" + a + "]").join(",");
-    const zh = { on: false, map: null, extraSig: null, txt: new WeakMap(), att: new WeakMap(), miss: new Map(), n: 0, obs: null, q: [], raf: 0 };   // q: [节点, 0 整棵 | 1 只看这段文字 | 2 只看属性]
+    const zh = { on: false, map: null, mapFold: null, extraSig: null, txt: new WeakMap(), att: new WeakMap(), miss: new Map(), n: 0, obs: null, q: [], raf: 0 };   // q: [节点, 0 整棵 | 1 只看这段文字 | 2 只看属性]
     const zhWanted = () => !(cfg && cfg.zh === false);
+    // v0.12.2：归一化键（忽略大小写、弯直引号、省略号差异与多余空格），防止系统更新改了大小写/标点导致翻译大面积失效
+    function zhNorm(s) {
+      return String(s).trim().replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...").replace(/\s+/g, " ").toLowerCase();
+    }
     function zhBuild() {
       const extra = cfg && typeof cfg.zhExtra === "string" ? cfg.zhExtra : "";
       if (zh.map && zh.extraSig === extra) return;
       const m = new Map(Object.entries(ZH));
+      const mf = new Map();
+      for (const [k, v] of m) { const nk = zhNorm(k); if (!mf.has(nk)) mf.set(nk, v); }
       for (const line of extra.split(/\r?\n/)) {
         const i = line.search(/\s*(?:=>|=|\t)\s*/);
         if (i <= 0) continue;
         const k = line.slice(0, i).trim(), v = line.slice(i).replace(/^\s*(?:=>|=|\t)\s*/, "").trim();
-        if (k && v) m.set(k, v);
+        if (k && v) { m.set(k, v); mf.set(zhNorm(k), v); }
       }
-      zh.map = m; zh.extraSig = extra;
+      zh.map = m; zh.mapFold = mf; zh.extraSig = extra;
     }
     const CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+    function zhLookup(t) {
+      let z = zh.map && zh.map.get(t);
+      if (z !== undefined) return z;
+      if (zh.mapFold) {
+        const nk = zhNorm(t);
+        z = zh.mapFold.get(nk);
+        if (z !== undefined) return z;
+        // 末尾标点兼容（比如 "Your plan:" vs "Your plan"、"Thinking…" vs "Thinking"）
+        const pm = /^(.*?)(\.\.\.|[:.])$/.exec(nk);
+        if (pm && pm[1].length >= 2) {
+          const base = zh.mapFold.get(pm[1]);
+          if (base !== undefined) {
+            const p = pm[2] === "..." ? "…" : pm[2] === ":" ? "：" : "。";
+            return /[…：。]$/.test(base) ? base : base + p;
+          }
+        }
+      }
+      return undefined;
+    }
     // 句子里嵌着的一小段（比如「当前：No Project」）：词表里有就换，没有原样保留
-    const zhIn = (x) => { const t = String(x).trim(); const z = zh.map && zh.map.get(t); if (z) return z; for (const [re, fn] of ZH_RE) { if (fn === undefined) continue; const m = re.exec(t); if (m && !/current:/.test(re.source)) { const r = fn(m); if (r) return r; } } return t; };
-    // 不记进「没翻到」的：快捷键、token 数、路径、纯数字单位这种
-    const ZH_NOMISS = /^(?:(?:Ctrl|Alt|Shift|Cmd|Meta|Win)\+|~[\\/])|\btok\b|tok\/s$|^[\d.,\s%KMG\/-]+$/;
+    const zhIn = (x) => { const t = String(x).trim(); const z = zhLookup(t); if (z) return z; for (const [re, fn] of ZH_RE) { if (fn === undefined) continue; const m = re.exec(t); if (m && !/current:/.test(re.source)) { const r = fn(m); if (r) return r; } } return t; };
+    // 不记进「没翻到」的：快捷键、token 数、路径、纯数字单位、明显正文/链接碎片
+    const ZH_NOMISS = /^(?:(?:Ctrl|Alt|Shift|Cmd|Meta|Win)\+|~[\\/])|\btok\b|tok\/s$|^[\d.,\s%KMG\/-]+$|file:\/\/\/|https?:\/\/|[`\\]|^[\w'-]+[,;:]$/;
     function zhT(s) {
       const t = s.trim();
-      if (!t || t.length > 120 || CJK.test(t) || !/[a-z]/i.test(t)) return null;
-      let z = zh.map.get(t);
+      if (!t || t.length > 140 || CJK.test(t) || !/[a-z]/i.test(t)) return null;
+      let z = zhLookup(t);
       if (z === undefined) {
         z = null;
         for (const [re, fn] of ZH_RE) { const m = re.exec(t); if (m) { z = fn(m); if (z) break; } }
@@ -6948,6 +7329,16 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
           .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-browser-hole", "class", "aria-pressed", "aria-expanded", "aria-selected", "aria-checked", "data-state", "data-active", "data-selected"] });
       } catch { }
       holeTimer = setInterval(() => { if (document.querySelector(HOLE_SEL) || holeHosts.size) updateHoles(); }, 250);
+      // v0.12.2：侧边栏或抽屉通过 CSS 动画滑入展开时，立刻走快速通道套上毛玻璃背板，杜绝白字漂浮在亮壁纸上
+      try {
+        document.addEventListener("transitionend", (e) => {
+          const t = e.target;
+          if (!t || t.nodeType !== 1 || isOurs(t) || !(ready && cfg && cfg.enabled && cfg.glass && !hideAll)) return;
+          if (e.propertyName === "transform" || e.propertyName === "width" || e.propertyName === "translate" || e.propertyName === "opacity") {
+            queueFresh(t);
+          }
+        }, { capture: true, passive: true });
+      } catch { }
       setInterval(() => sendContext(false), 600);
       let lastPath = location.pathname, reportT = 0;
       setInterval(() => {

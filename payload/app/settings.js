@@ -496,8 +496,9 @@
     const el = $("#buddySrc"); if (!el || Date.now() < buddyMsgUntil) return;
     let i = null; try { i = await get("buddy-info"); } catch { }
     if (!i) { el.textContent = ""; return; }
-    el.textContent = i.kind === "none" ? "⚠ 没找到素材：插件文件夹里自带的 buddy 文件夹不见了（重新解压一份），或者选一个素材文件夹" : "正在用：" + BUDDY_SRC[i.kind] + "（" + i.clips.length + " 个动作）" + " · " + i.dir;
-    el.title = i.clips.join("、");
+    const clips = Array.isArray(i.clips) ? i.clips : [];
+    el.textContent = i.kind === "none" ? "⚠ 没找到素材：插件文件夹里自带的 buddy 文件夹不见了（重新解压一份），或者选一个素材文件夹" : "正在用：" + (BUDDY_SRC[i.kind] || i.kind || "本地") + "（" + clips.length + " 个动作）" + " · " + (i.dir || "");
+    el.title = clips.join("、");
     $("#buddyImport").disabled = !i.catgirl;
     $("#buddyImport").textContent = i.imported ? "重新从猫猫插件复制" : "从猫猫插件复制一份";
     $("#buddyImport").title = i.catgirl ? "复制到 " + "%APPDATA%\\Antigravity\\agywe\\buddy（约 95 MB），之后删掉猫猫插件也能用" : "没装猫猫插件";
@@ -1194,7 +1195,23 @@
     if (!link.isFromParent(e)) return;
     const d = e.data || {};
     if (d.type === "agywe:contrast") renderContrast(d.c);
+    if (d.type === "agywe:zh-miss") renderZhMiss(d.miss || []);
   });
+  function renderZhMiss(list) {
+    const msg = $("#zhMissMsg");
+    if (!msg) return;
+    if (!list.length) { msg.textContent = "当前页没有检测到未翻译的固定界面英文。"; return; }
+    const preview = list.slice(0, 12).join(" ｜ ");
+    msg.textContent = `发现 ${list.length} 条未翻文本（点击上方补充翻译框可按「英文 = 中文」添加）：` + preview + (list.length > 12 ? " …" : "");
+    msg.title = list.join("\n");
+    const ta = $('[data-k="zhExtra"]');
+    if (ta && !ta.value.trim()) ta.placeholder = list.slice(0, 4).map((x) => x + " = ").join("\n");
+  }
+  const zhMissBtn = $("#zhMissBtn");
+  if (zhMissBtn) zhMissBtn.onclick = () => {
+    const msg = $("#zhMissMsg"); if (msg) msg.textContent = "正在读取当前页未翻译文本…";
+    try { link.post({ type: "agywe:want-zh-miss" }); } catch { }
+  };
   const askContrast = () => { try { link.post({ type: "agywe:want-contrast" }); } catch { } };
   $$("nav button").forEach((b) => b.addEventListener("click", () => { if (b.dataset.tab === "look") askContrast(); }));
   $$('[data-k="autoContrast"], [data-k="contrastTarget"], [data-k="panelOpacity"], [data-k="contentOpacity"], [data-k="bubbleOpacity"], [data-k="dim"]').forEach((el) => el.addEventListener("change", () => setTimeout(askContrast, 450)));

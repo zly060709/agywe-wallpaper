@@ -66,14 +66,6 @@ function catgirlAssets() {
     return fs.existsSync(path.join(d, "idle", "motion.webm")) ? d : "";
   } catch { return ""; }
 }
-// v0.11.1：插件文件夹里的 buddy\（%LOCALAPPDATA%\Programs\agywe-wallpaper\buddy），删掉猫猫插件前可以先把素材放这里
-function buddyLocal() {
-  try {
-    const la = process.env.LOCALAPPDATA;
-    const d = la ? path.join(la, "Programs", "agywe-wallpaper", "buddy") : "";
-    return d && fs.existsSync(d) ? d : "";
-  } catch { return ""; }
-}
 function buddyImported() { try { const d = path.join(app.getPath("userData"), "agywe", "buddy"); return fs.existsSync(d) ? d : ""; } catch { return ""; } }
 // v0.12.0：插件文件夹里自带的 buddy\（%LOCALAPPDATA%\Programs\agywe-wallpaper\buddy），仓库里那套原创角色的动作
 function buddyLocal() {
@@ -232,6 +224,7 @@ const DEFAULTS = {
   autoFix: true,
   autoFixRestart: true,
   textHalo: 0.6,                // 文字描边强度
+  textBoost: true,              // v0.12.2 文字清晰度增强（提亮/加深思考区块、次要文字与展开侧边栏）
   haloColor: "auto",            // auto | light | dark
   dimMode: "auto",              // auto | darken | lighten
   clickFx: "none",              // none | ripple | sparkle | petal | heart
@@ -249,7 +242,7 @@ const DEFAULTS = {
   pet: { image: null, size: 64, cord: 36, stamp: 0 },
   // 内置桌宠（v0.11 猫猫桌宠；v0.12.0 起插件自带原创角色的动作）。素材：自己选的文件夹 → 复制到 agywe\\buddy 的 → 插件文件夹里自带的 buddy\ → 猫猫插件自带的）
   // 新装默认显示；从 v0.11 及以前升级的看下面 migBuddy12
-  buddy: { on: true, dir: "", size: 150, replaceDoll: false, idle: true, greet: true, stamp: 0 },
+  buddy: { on: true, dir: "", size: 150, replaceDoll: false, idle: true, walk: true, greet: true, stamp: 0 },
   migBuddy12: false,           // v0.12.0：没装过猫猫插件的，升级时打开内置桌宠一次（插件现在自带角色）
   migBuddy: false,              // v0.11：装过猫猫插件的，升级时打开内置桌宠一次，并关掉调试端口（不用再让原插件挂进来）
   // v0.11 用量卡片：上下文 / 缓存命中 / 速度 / 额度
@@ -1429,8 +1422,8 @@ function applyTitleBar(win) {
   try {
     if (!win || win.isDestroyed() || typeof win.setTitleBarOverlay !== "function") return;
     const tg = tbTarget(), o = tbOrig.get(win);
-    if (tg) { win.setTitleBarOverlay({ __agywe: true, ...tg }); tbTouched.add(win); tbDiag(`窗口 ${win.id} → ${JSON.stringify(tg)}`); }
-    else if (tbTouched.has(win) && o && o.color) { win.setTitleBarOverlay({ __agywe: true, color: o.color, ...(o.symbolColor ? { symbolColor: o.symbolColor } : {}) }); tbTouched.delete(win); tbDiag(`窗口 ${win.id} 还原 ${o.color}`); }
+    if (tg) { const ov = { __agywe: true, ...tg, ...(o && o.height ? { height: o.height } : {}) }; win.setTitleBarOverlay(ov); tbTouched.add(win); tbDiag(`窗口 ${win.id} → ${JSON.stringify(tg)}`); }
+    else if (tbTouched.has(win) && o && o.color) { win.setTitleBarOverlay({ __agywe: true, color: o.color, ...(o.symbolColor ? { symbolColor: o.symbolColor } : {}), ...(o.height ? { height: o.height } : {}) }); tbTouched.delete(win); tbDiag(`窗口 ${win.id} 还原 ${o.color}`); }
   } catch (e) { tbDiag(`窗口设置失败：${e && e.message || e}`); }
 }
 function syncTitleBars() { try { for (const w of BrowserWindow.getAllWindows()) applyTitleBar(w); } catch { } }
