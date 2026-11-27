@@ -8,15 +8,38 @@
   const strip = $("#strip"), q = $("#q");
   const TYPE = { scene: "场景", video: "视频", web: "网页", image: "图片" };
   const VIEWS = ["fav", "recent", "all"];
-  let cfg = null, lib = { items: [] }, view = "all", list = [], sel = 0, effKey = "", busy = false;
+  const MAX_ITEMS = 600;
+  let cfg = null, lib = { items: [] }, view = "all", list = [], totalMatched = 0, sel = 0, effKey = "";
   const keyOf = (it) => it.kind + ":" + it.id;
-  const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store" }); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); };
-  // v0.11.2：保存失败不再悄悄吞掉：返回 false，并让挂件说一声
-  async function put(patch) {
+  const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store", headers: { "x-agywe-token": TOKEN } }); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); };
+  // v0.13.1：接入 savequeue.js 串行化切换与收藏保存请求，同时保持失败不吞与 false 返回值
+  async function sendPatch(patch) {
+    const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const c = await r.json();
+    if (!c || typeof c !== "object" || Array.isArray(c) || c.error) throw new Error((c && c.error) || "invalid config");
+    return c;
+  }
+  const saveQ = window.agyweSaveQueue && window.agyweSaveQueue.createSaveQueue ? window.agyweSaveQueue.createSaveQueue({
+    delay: 80,
+    send: sendPatch,
+    onSaved(c) {
+      cfg = c;
+      try { bc && bc.postMessage({ type: "config" }); } catch { }
+    },
+    onError(e) {
+      try { console.warn("[agywe] 保存失败", e); } catch { }
+      link.post({ type: "agywe:switched", error: "没保存上，稍后再试一次" });
+    }
+  }) : null;
+  async function put(patch, now) {
+    if (saveQ) {
+      const res = saveQ.save(patch, now !== false);
+      return res === undefined ? true : await res;
+    }
     let c = null;
     try {
-      const r = await fetch("/api/config", { method: "PUT", headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(patch) });
-      if (r.ok) c = await r.json();
+      c = await sendPatch(patch);
     } catch (e) { try { console.warn("[agywe] 保存失败", e); } catch { } }
     if (!c || typeof c !== "object" || Array.isArray(c) || c.error) {
       link.post({ type: "agywe:switched", error: "没保存上，稍后再试一次" });
@@ -43,16 +66,27 @@
     if (s) out = out.filter((it) => String(it.title || "").toLowerCase().includes(s) || (it.tags || []).some((t) => String(t).toLowerCase().includes(s)) || String(it.workshopId || "").includes(s));
     return out;
   }
+  function sliceWindow(allMatched, pinItem) {
+    const out = allMatched.slice(0, MAX_ITEMS);
+    if (pinItem && !out.some((x) => keyOf(x) === keyOf(pinItem))) {
+      out.unshift(pinItem);
+      if (out.length > MAX_ITEMS) out.length = MAX_ITEMS;
+    }
+    return out;
+  }
   function mark(scroll) {
     const cards = strip.querySelectorAll(".card");
     cards.forEach((c, i) => c.classList.toggle("sel", i === sel));
     const c = cards[sel];
     if (c && scroll) c.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    $("#info").textContent = list.length ? (sel + 1) + " / " + list.length + (list[sel] ? "　" + (list[sel].title || "") : "") : "";
+    const totalLabel = totalMatched > list.length ? list.length + " (共 " + totalMatched + ")" : String(list.length);
+    $("#info").textContent = list.length ? (sel + 1) + " / " + totalLabel + (list[sel] ? "　" + (list[sel].title || "") : "") : "";
   }
-  function render(selKey) {
+  function render(selKey, pinItem) {
     document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
-    list = compute().slice(0, 600);
+    const allMatched = compute();
+    totalMatched = allMatched.length;
+    list = sliceWindow(allMatched, pinItem);
     strip.textContent = "";
     if (!list.length) {
       const e = document.createElement("div"); e.className = "empty";
@@ -84,26 +118,25 @@
     sel = idx >= 0 ? idx : 0;
     mark(true);
   }
-  async function apply(i, keep) {
-    const it = list[i]; if (!it || busy) return;
-    busy = true;
+  async function apply(i, keep, pinItem) {
+    const it = pinItem || list[i]; if (!it) return;
     const patch = { current: { kind: it.kind, id: it.id } };
-    if (!cfg.enabled) patch.enabled = true;
-    if (cfg.paused) patch.paused = false;
-    try {
-      if (await put(patch)) {
-        effKey = keyOf(it);
-        link.post({ type: "agywe:switched", title: it.title, n: i + 1, total: list.length });
-      }
-    } finally { busy = false; }
-    if (keep) render(keyOf(it)); else setTimeout(close, 90);
+    if (!cfg.enabled) { cfg.enabled = true; patch.enabled = true; }
+    if (cfg.paused) { cfg.paused = false; patch.paused = false; }
+    if (await put(patch, true)) {
+      effKey = keyOf(it);
+      if (keep) render(keyOf(it), pinItem);
+      link.post({ type: "agywe:switched", title: it.title, n: (sel >= 0 ? sel : i) + 1, total: totalMatched || list.length });
+    }
+    if (!keep) setTimeout(close, 90);
   }
   async function toggleFav(i) {
     const it = list[i]; if (!it) return;
     const k = keyOf(it), fav = new Set(cfg.favorites || []);
     if (fav.has(k)) fav.delete(k); else fav.add(k);
-    await put({ favorites: [...fav] });
+    cfg.favorites = [...fav];
     render(k);
+    await put({ favorites: cfg.favorites }, false);
   }
   function move(step) { if (!list.length) return; sel = (sel + step + list.length) % list.length; mark(true); }
   window.addEventListener("keydown", (e) => {
@@ -131,7 +164,8 @@
     const pool = compute(); if (!pool.length) return;
     let i = 0, guard = 0;
     do { i = Math.floor(Math.random() * pool.length); } while (pool.length > 1 && keyOf(pool[i]) === effKey && guard++ < 20);
-    list = pool; apply(i, true);
+    const pick = pool[i];
+    apply(i, true, pick);
   });
   if (bc) bc.addEventListener("message", (e) => {
     const d = e.data || {};

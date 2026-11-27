@@ -166,6 +166,7 @@
     if (!it.preview) return "";
     return "/we/" + it.id + "/" + it.preview.split("/").map(encodeURIComponent).join("/");
   }
+  let gridIO = null;
   function renderGrid() {
     const q = $("#q").value.trim().toLowerCase();
     const ft = $("#ftype").value;
@@ -184,9 +185,13 @@
     });
     $("#count").textContent = `共 ${lib.items.length} 项，显示 ${items.length} 项` + (lib.items.length ? "" : "。没有找到 Wallpaper Engine 壁纸，可以去「目录」里手动添加，或者添加自己的图片/视频。");
     const grid = $("#grid");
+    if (gridIO) { gridIO.disconnect(); gridIO = null; }
     grid.textContent = "";
-    const frag = document.createDocumentFragment();
-    for (const it of items) {
+    const BATCH_SIZE = 120;
+    let offset = 0;
+    const sentinel = document.createElement("div");
+    sentinel.style.cssText = "grid-column: 1 / -1; height: 1px; width: 100%; pointer-events: none;";
+    function buildCard(it) {
       const k = keyOf(it);
       const card = document.createElement("div");
       card.className = "card" + (k === curKey ? " cur" : "") + (it.supported ? "" : " unsup") + (hid.has(k) ? " hid" : "");
@@ -201,7 +206,15 @@
       badge.textContent = (it.kind === "custom" ? "自定义·" : "") + (TYPE_LABEL[it.type] || it.type || "?");
       const acts = document.createElement("div"); acts.className = "acts";
       const bFav = document.createElement("button"); bFav.textContent = "★"; bFav.title = "收藏（轮播用）"; if (fav.has(k)) bFav.classList.add("on");
-      bFav.onclick = (e) => { e.stopPropagation(); const s = new Set(cfg.favorites || []); s.has(k) ? s.delete(k) : s.add(k); cfg.favorites = [...s]; save({ favorites: cfg.favorites }, true); renderGrid(); };
+      bFav.onclick = (e) => {
+        e.stopPropagation();
+        const s = new Set(cfg.favorites || []);
+        s.has(k) ? s.delete(k) : s.add(k);
+        cfg.favorites = [...s];
+        bFav.classList.toggle("on", s.has(k));
+        save({ favorites: cfg.favorites }, true);
+        if (onlyFav && !s.has(k)) card.remove();
+      };
       const bHide = document.createElement("button"); bHide.textContent = hid.has(k) ? "↺" : "⊘"; bHide.title = hid.has(k) ? "恢复" : "隐藏";
       bHide.onclick = (e) => { e.stopPropagation(); const s = new Set(cfg.hidden || []); s.has(k) ? s.delete(k) : s.add(k); cfg.hidden = [...s]; save({ hidden: cfg.hidden }, true); renderGrid(); };
       const bDir = document.createElement("button"); bDir.textContent = "📂"; bDir.title = "打开所在文件夹";
@@ -220,11 +233,40 @@
         if (!cfg.enabled) { cfg.enabled = true; patch.enabled = true; const sw = $('[data-k="enabled"]'); if (sw) sw.checked = true; }
         if (cfg.paused) { cfg.paused = false; patch.paused = false; }
         save(patch, true);
-        renderGrid();
+        grid.querySelectorAll(".card.cur").forEach((c) => c.classList.remove("cur"));
+        card.classList.add("cur");
       };
-      frag.appendChild(card);
+      return card;
     }
-    grid.appendChild(frag);
+    function appendNextBatch() {
+      if (offset >= items.length) {
+        if (gridIO) { gridIO.disconnect(); gridIO = null; }
+        sentinel.remove();
+        return;
+      }
+      const slice = items.slice(offset, offset + BATCH_SIZE);
+      offset += slice.length;
+      const frag = document.createDocumentFragment();
+      for (const it of slice) frag.appendChild(buildCard(it));
+      if (sentinel.parentNode === grid) grid.insertBefore(frag, sentinel);
+      else grid.appendChild(frag);
+      if (offset >= items.length) {
+        if (gridIO) { gridIO.disconnect(); gridIO = null; }
+        sentinel.remove();
+      }
+    }
+    appendNextBatch();
+    if (offset < items.length) {
+      grid.appendChild(sentinel);
+      if ("IntersectionObserver" in window) {
+        gridIO = new IntersectionObserver((entries) => {
+          if (entries.some((e) => e.isIntersecting)) appendNextBatch();
+        }, { root: null, rootMargin: "320px 0px" });
+        gridIO.observe(sentinel);
+      } else {
+        while (offset < items.length) appendNextBatch();
+      }
+    }
   }
   ["#q", "#ftype", "#ffav", "#fhidden"].forEach((s) => $(s).addEventListener("input", renderGrid));
   async function loadLib(refresh) {

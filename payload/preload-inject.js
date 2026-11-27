@@ -141,6 +141,10 @@ html.agywe-on [data-agywe-glass="panel"], html.agywe-on [data-agywe-glass="field
   -webkit-backdrop-filter: var(--agywe-bf, var(--agywe-pbf, blur(var(--agywe-blur, 18px)) saturate(1.25))) !important;
   backdrop-filter: var(--agywe-bf, var(--agywe-pbf, blur(var(--agywe-blur, 18px)) saturate(1.25))) !important;
 }
+html.agywe-on [data-agywe-draghost] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
 html.agywe-on [data-agywe-glass="field"] { background-color: rgba(var(--agywe-c, 20,20,20), calc(var(--agywe-alpha, .55) * 1.2)) !important; }
 html.agywe-on [data-agywe-glass="inner"] {
   background-color: rgba(var(--agywe-c, 20,20,20), calc(var(--agywe-alpha, .55) * .6)) !important;
@@ -210,7 +214,7 @@ html.agywe-on.agywe-readfix.agywe-darktext :is(.bg-sidebar, [aria-label*="侧边
   color: inherit;
 }
 #agywe-avatars {
-  position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; margin: 0 !important; padding: 0 !important;
+  position: fixed !important; top: 32px !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: calc(100vh - 32px) !important; margin: 0 !important; padding: 0 !important;
   pointer-events: none !important; z-index: 45 !important; overflow: hidden !important; background: transparent !important; contain: layout style;
 }
 #agywe-avatars .agywe-av {
@@ -1113,7 +1117,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       if (kind !== "clear" && el.querySelector && el.querySelector(HOLE_SEL)) holeHosts.add(el);
     }
     function unmark(el) {
-      try { el.removeAttribute("data-agywe-glass"); el.style.removeProperty("--agywe-c"); restoreInline(el); } catch { }
+      try { el.removeAttribute("data-agywe-glass"); el.removeAttribute("data-agywe-draghost"); el.style.removeProperty("--agywe-c"); restoreInline(el); } catch { }
       if (holeHosts.has(el)) { try { el.style.removeProperty("clip-path"); } catch { } holeHosts.delete(el); }
       marked.delete(el); baseKind.delete(el);
     }
@@ -1191,10 +1195,22 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       else unset("border-color");
       set("background-color", `rgba(var(--agywe-c, 20,20,20), ${a})`);
       set("background-image", "none");
-      if (kind === "inner" || kind === "icon" || hasDragRegion(el)) { unset("-webkit-backdrop-filter"); unset("backdrop-filter"); }
-      else if (kind === "dialog") { set("-webkit-backdrop-filter", DIALOG_BLUR); set("backdrop-filter", DIALOG_BLUR); }
-      else if (kind === "float") { set("-webkit-backdrop-filter", FLOAT_BLUR); set("backdrop-filter", FLOAT_BLUR); }
-      else { set("-webkit-backdrop-filter", BLUR_VAL); set("backdrop-filter", BLUR_VAL); }
+      if (hasDragRegion(el)) {
+        try { el.setAttribute("data-agywe-draghost", "1"); } catch { }
+        set("-webkit-backdrop-filter", "none"); set("backdrop-filter", "none");
+      } else if (kind === "inner" || kind === "icon") {
+        try { el.removeAttribute("data-agywe-draghost"); } catch { }
+        unset("-webkit-backdrop-filter"); unset("backdrop-filter");
+      } else if (kind === "dialog") {
+        try { el.removeAttribute("data-agywe-draghost"); } catch { }
+        set("-webkit-backdrop-filter", DIALOG_BLUR); set("backdrop-filter", DIALOG_BLUR);
+      } else if (kind === "float") {
+        try { el.removeAttribute("data-agywe-draghost"); } catch { }
+        set("-webkit-backdrop-filter", FLOAT_BLUR); set("backdrop-filter", FLOAT_BLUR);
+      } else {
+        try { el.removeAttribute("data-agywe-draghost"); } catch { }
+        set("-webkit-backdrop-filter", BLUR_VAL); set("backdrop-filter", BLUR_VAL);
+      }
     }
     function clearGlass() { for (const el of [...marked]) unmark(el); try { for (const el of document.querySelectorAll("[data-agywe-pse]")) el.removeAttribute("data-agywe-pse"); } catch { } pseSig = new WeakMap(); }
 
@@ -1969,8 +1985,9 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       const size = clamp(Number(cfg.avatarSize) || 34, 20, 72), gap = 10;
       const sc = avScroller(list);
       const sr = sc ? sc.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+      const AV_TOP = 32;
       av.root.style.setProperty("--agywe-av", size + "px");
-      av.root.style.setProperty("clip-path", `inset(${Math.max(0, sr.top)}px ${Math.max(0, innerWidth - sr.right)}px ${Math.max(0, innerHeight - sr.bottom)}px ${Math.max(0, sr.left)}px)`);
+      av.root.style.setProperty("clip-path", `inset(${Math.max(0, sr.top - AV_TOP)}px ${Math.max(0, innerWidth - sr.right)}px ${Math.max(0, innerHeight - sr.bottom)}px ${Math.max(0, sr.left)}px)`);
       const shape = ["circle", "rounded", "none"].includes(cfg.avatarShape) ? cfg.avatarShape : "circle";
       if (av.root.dataset.shape !== shape) av.root.dataset.shape = shape;
       // 分组：用户消息一组一组，中间连着的 agent 内容算一段回复
@@ -1997,7 +2014,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
         let el = av.pool.get(key);
         if (!el || !el.isConnected) { el = document.createElement("div"); el.className = "agywe-av agywe-av-" + who; av.root.appendChild(el); av.pool.set(key, el); }
         avFill(el, who);
-        el.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+        el.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y - AV_TOP)}px, 0)`;
         if (el.classList.contains("busy") !== !!busy) el.classList.toggle("busy", !!busy);
         const md = who === "agent" && key === lastAgentKey ? mood.state : "";
         for (const m of ["done", "attention", "error"]) if (el.classList.contains("mood-" + m) !== (md === m)) el.classList.toggle("mood-" + m, md === m);
@@ -2303,7 +2320,7 @@ html.agywe-hideall #agywe-buddy { display: none !important; }`;
       if (keep.length) fx.raf = requestAnimationFrame(fxTick);
       else { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fx.cv.width, fx.cv.height); fx.cv.style.display = "none"; }
     }
-    window.addEventListener("pointerdown", (e) => { if (fx.cv && cfg && cfg.clickFx && cfg.clickFx !== "none" && e.button === 0 && !pick) fxClick(e.clientX, e.clientY); }, { capture: true, passive: true });
+    window.addEventListener("pointerdown", (e) => { if (fx.cv && cfg && cfg.clickFx && cfg.clickFx !== "none" && e.button === 0 && !pick && e.clientY > 34) fxClick(e.clientX, e.clientY); }, { capture: true, passive: true });
     window.addEventListener("pointermove", (e) => { if (fx.cv && cfg && cfg.trailFx && cfg.trailFx !== "none" && !pick) fxMove(e.clientX, e.clientY); }, { capture: true, passive: true });
     document.addEventListener("mouseleave", () => { fx.last = null; }, { passive: true });
 
@@ -4804,6 +4821,87 @@ html.agywe-splash-on #agywe-pet, html.agywe-splash-on #agywe-avatars, html.agywe
           setTimeout(() => { try { pseSig = new WeakMap(); scanGlass(); diag("glass-report", { glass: glassReport(), glassPerf: perfSummary(), why: "icon-click" }); } catch { } }, 2500);
         } catch { }
       }, { capture: true, passive: true });
+    } catch { }
+
+    // v0.13.1 窗口顶栏拖动与双击最大化兜底：原生 -webkit-app-region: drag 正常时事件不会进入 JS，
+    // 仅当因 Electron 透明壁纸层 / Top Layer 导致原生拖动失灵时自动接管，且严格避开按钮、挂件、边缘缩放与右上角系统控制按钮
+    try {
+      const INTERACTIVE_TAG = /^(BUTTON|A|INPUT|TEXTAREA|SELECT|OPTION|LABEL|SUMMARY)$/;
+      const INTERACTIVE_ROLE = /^(button|link|tab|menuitem|menuitemcheckbox|menuitemradio|checkbox|radio|switch|combobox|textbox|searchbox|slider)$/;
+      function isTitleDragTarget(e) {
+        if (!e || e.clientY < 4 || e.clientY > 34 || e.clientX < 4 || e.clientX > innerWidth - 145) return false;
+        if (pick || settingsFrame || quickFrame || menuEl || (pomo && pomo.overlay)) return false;
+        let cur = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+        let hitDrag = false;
+        let hitTopBar = false;
+        while (cur && cur !== document.documentElement) {
+          if (isOurs(cur)) return false;
+          if (INTERACTIVE_TAG.test(cur.tagName)) return false;
+          const role = cur.getAttribute && cur.getAttribute("role");
+          if (role && INTERACTIVE_ROLE.test(role)) return false;
+          if (cur.isContentEditable) return false;
+          try {
+            const cs = getComputedStyle(cur);
+            const ar = (cs.getPropertyValue("-webkit-app-region") || cs.getPropertyValue("app-region") || "").trim();
+            if (ar === "no-drag") return false;
+            if (ar === "drag") hitDrag = true;
+            if (!hitTopBar) {
+              const r = cur.getBoundingClientRect();
+              if (r.top <= 4 && r.height >= 20 && r.height <= 42 && r.width >= 200) hitTopBar = true;
+            }
+          } catch { }
+          cur = cur.parentElement;
+        }
+        return hitDrag || hitTopBar;
+      }
+      let winDragState = null;
+      function endWinDrag() {
+        if (!winDragState) return;
+        const st = winDragState;
+        winDragState = null;
+        if (st.raf) cancelAnimationFrame(st.raf);
+        window.removeEventListener("mousemove", onWinDragMove, true);
+        window.removeEventListener("mouseup", endWinDrag, true);
+        window.removeEventListener("blur", endWinDrag, true);
+        if (st.started) {
+          try { document.documentElement.style.removeProperty("user-select"); } catch { }
+          try { ipcRenderer.send("agywe:win-drag", { op: "end" }); } catch { }
+        }
+      }
+      function onWinDragMove(e) {
+        const st = winDragState;
+        if (!st) return;
+        if ((e.buttons & 1) === 0) { endWinDrag(); return; }
+        if (!st.started) {
+          if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 3) return;
+          st.started = true;
+          try { document.documentElement.style.setProperty("user-select", "none", "important"); } catch { }
+          try { window.getSelection && window.getSelection().removeAllRanges(); } catch { }
+          try { ipcRenderer.send("agywe:win-drag", { op: "start", rx: st.sx / Math.max(1, innerWidth), cy: st.sy }); } catch { }
+        }
+        e.preventDefault();
+        if (!st.raf) {
+          st.raf = requestAnimationFrame(() => {
+            if (!winDragState || !winDragState.started) return;
+            winDragState.raf = 0;
+            try { ipcRenderer.send("agywe:win-drag", { op: "move" }); } catch { }
+          });
+        }
+      }
+      window.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || !isTitleDragTarget(e)) return;
+        endWinDrag();
+        winDragState = { sx: e.clientX, sy: e.clientY, started: false, raf: 0 };
+        window.addEventListener("mousemove", onWinDragMove, true);
+        window.addEventListener("mouseup", endWinDrag, true);
+        window.addEventListener("blur", endWinDrag, true);
+      }, { capture: true });
+      window.addEventListener("dblclick", (e) => {
+        if (e.button !== 0 || !isTitleDragTarget(e)) return;
+        endWinDrag();
+        e.preventDefault();
+        try { ipcRenderer.send("agywe:win-drag", { op: "toggle-max" }); } catch { }
+      }, { capture: true });
     } catch { }
 
     // =====================================================================

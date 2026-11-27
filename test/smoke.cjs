@@ -132,9 +132,11 @@ test("页面引用的文件都在，令牌占位符正确", () => {
     }
     if (/name="agywe-token"/.test(html)) assert.ok(html.includes('content="__AGYWE_TOKEN__"'), f + " 的令牌占位符不对");
   }
-  const s = fs.readFileSync(path.join(appDir, "settings.html"), "utf8");
-  const a = s.indexOf('src="savequeue.js"'), b = s.indexOf('src="settings.js"');
-  assert.ok(a >= 0 && b > a, "settings.html 必须先加载 savequeue.js 再加载 settings.js");
+  for (const [page, mainJs] of [["settings.html", "settings.js"], ["quick.html", "quick.js"]]) {
+    const s = fs.readFileSync(path.join(appDir, page), "utf8");
+    const a = s.indexOf('src="savequeue.js"'), b = s.indexOf('src="' + mainJs + '"');
+    assert.ok(a >= 0 && b > a, page + " 必须先加载 savequeue.js 再加载 " + mainJs);
+  }
   return pages.length + " 个页面、" + refs + " 处引用";
 });
 
@@ -404,6 +406,58 @@ test("设置保存队列", async () => {
   const s = read("payload/app/settings.js");
   assert.ok(s.includes("agyweSaveQueue.createSaveQueue") && !/cfg = await post\("config"/.test(s), "settings.js 没有用保存队列");
   return "防抖、串行、过期响应、失败、嵌套合并都对";
+});
+
+test("快速切换页：保存队列串行合并与 600 项随机置顶", async () => {
+  const qSrc = read("payload/app/quick.js");
+  assert.ok(qSrc.includes("agyweSaveQueue") && qSrc.includes("createSaveQueue"), "quick.js 没有接入 savequeue.js");
+  const sliceCode = extractDecl(qSrc, "sliceWindow");
+  const { sliceWindow } = compileSnippet(
+    "const MAX_ITEMS = 600; const keyOf = (it) => it.kind + ':' + it.id;\n" + sliceCode,
+    ["sliceWindow"],
+    {}
+  );
+  const bigPool = Array.from({ length: 750 }, (_, idx) => ({ kind: "we", id: String(idx), title: "Wallpaper " + idx }));
+  const winIn = sliceWindow(bigPool, bigPool[42]);
+  assert.strictEqual(winIn.length, 600, "窗口长度应保持 600");
+  assert.strictEqual(winIn[42].id, "42", "600 项以内的随机项不应重复置顶");
+  const winOut = sliceWindow(bigPool, bigPool[688]);
+  assert.strictEqual(winOut.length, 600, "置顶后窗口长度应严格保持 600");
+  assert.strictEqual(winOut[0].id, "688", "600 项以外的随机项应置入窗口首位，防止 sel 回退丢失");
+  assert.strictEqual(winOut[1].id, "0", "原首位应顺移至 index 1");
+
+  const { createSaveQueue } = require(path.join(PAYLOAD, "app", "savequeue.js"));
+  const sent = [];
+  let inFlight = 0, maxInFlight = 0;
+  const q = createSaveQueue({
+    delay: 30,
+    send: async (patch) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      sent.push(patch);
+      await sleep(15);
+      inFlight--;
+      return patch;
+    }
+  });
+  q.save({ favorites: ["we:1"] }, false);
+  q.save({ favorites: ["we:1", "we:2"] }, false);
+  await q.save({ current: { kind: "we", id: "688" }, enabled: true }, true);
+  await q.flush();
+  assert.strictEqual(maxInFlight, 1, "quick.js 保存队列同一时刻只能有 1 个请求在路上");
+  eqJ(sent, [{ favorites: ["we:1", "we:2"], current: { kind: "we", id: "688" }, enabled: true }], "防抖中的收藏修改应与随后的立即切换壁纸合并为单次 PUT 请求");
+  return "750 项池越界置顶 + 收藏/切换合并串行验证通过";
+});
+
+test("窗口拖动双保险与主进程异步诊断写盘", () => {
+  const pre = read("payload/preload-inject.js");
+  const hk = read("payload/hook.js");
+  assert.ok(pre.includes('data-agywe-draghost') && pre.includes('set("backdrop-filter", "none")'), "顶栏拖动宿主缺少强制去模糊保护");
+  assert.ok(pre.includes('ipcRenderer.send("agywe:win-drag"') && hk.includes('ipcMain.on("agywe:win-drag"'), "缺少主进程窗口拖动兜底通道");
+  assert.ok(hk.includes("flushDiagAsync") && hk.includes("fsp.appendFile"), "diagWrite 未切为异步批量刷盘");
+  const st = read("payload/app/settings.js");
+  assert.ok(st.includes('"x-agywe-token": TOKEN') && st.includes("IntersectionObserver"), "settings.js 缺少令牌头或壁纸库增量挂载");
+  return "顶栏去模糊 + 拖动兜底 + 异步刷盘 + 令牌/增量加载就绪";
 });
 
 // ===========================================================================

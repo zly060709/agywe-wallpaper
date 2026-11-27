@@ -118,12 +118,17 @@
       const v = document.createElement("video");
       v.muted = !(cfg.volume > 0); v.volume = Math.min(1, Math.max(0, cfg.volume || 0));
       v.loop = true; v.autoplay = true; v.playsInline = true; v.preload = "auto";
-      v.src = mediaUrl(item);
-      layer.appendChild(v);
       await new Promise((res, rej) => {
-        const t = setTimeout(() => rej(new Error("视频加载超时")), 30000);
-        v.addEventListener("loadeddata", () => { clearTimeout(t); res(); }, { once: true });
-        v.addEventListener("error", () => { clearTimeout(t); rej(new Error("视频无法播放（可能是编码不受支持）")); }, { once: true });
+        let settled = false;
+        const cleanup = () => { v.removeEventListener("loadeddata", onLoaded); v.removeEventListener("error", onError); };
+        const killVideo = () => { try { v.pause(); v.removeAttribute("src"); v.load(); v.remove(); } catch { } };
+        const onLoaded = () => { if (settled) return; settled = true; clearTimeout(t); cleanup(); res(); };
+        const onError = () => { if (settled) return; settled = true; clearTimeout(t); cleanup(); killVideo(); rej(new Error("视频无法播放（可能是编码不受支持）")); };
+        const t = setTimeout(() => { if (settled) return; settled = true; cleanup(); killVideo(); rej(new Error("视频加载超时")); }, 30000);
+        v.addEventListener("loadeddata", onLoaded, { once: true });
+        v.addEventListener("error", onError, { once: true });
+        v.src = mediaUrl(item);
+        layer.appendChild(v);
       });
       try { v.playbackRate = videoRate(); } catch { }
       try { await v.play(); } catch { v.muted = true; try { await v.play(); } catch { } }
@@ -180,9 +185,10 @@
     setTimeout(() => disposeEntry(old), Math.max(300, (Number(cfg.transitionSec ?? 0.9) * 1000) + 200));
     if (!par.raf) par.raf = requestAnimationFrame(parallaxTick);
     applyPause();
-    setTimeout(() => updatePalette(0), 400);
-    if (entry.video) {
-      entry.video.addEventListener("loadeddata", () => setTimeout(() => updatePalette(0), 250), { once: true });
+    if (entry.video && entry.video.readyState >= 2) {
+      setTimeout(() => updatePalette(0), 250);
+    } else {
+      setTimeout(() => updatePalette(0), 400);
     }
     toParent({ type: "agywe:config", config: publicCfg() });
   }

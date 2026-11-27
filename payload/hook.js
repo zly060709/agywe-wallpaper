@@ -5,7 +5,7 @@
  * 任何异常都只记日志，绝不影响 Antigravity 本身启动。
  */
 const electron = require("electron");
-const { app, protocol, session, dialog, shell, BrowserWindow, ipcMain, desktopCapturer } = electron;
+const { app, protocol, session, dialog, shell, BrowserWindow, ipcMain, desktopCapturer, screen } = electron;
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
@@ -29,15 +29,50 @@ try {
   if (pluginDir && fs.existsSync(pluginDir)) DIAG_FILES.push(path.join(pluginDir, "agywe-diag.log"));
 } catch { }
 let diagCount = 0;
+let diagBuf = "";
+let diagTimer = null;
+let diagFlushing = false;
+async function flushDiagAsync() {
+  if (diagFlushing || !diagBuf) return;
+  diagFlushing = true;
+  const chunk = diagBuf;
+  diagBuf = "";
+  try {
+    for (const f of DIAG_FILES) {
+      try {
+        const st = await fsp.stat(f).catch(() => null);
+        if (st && st.size > 4 * 1024 * 1024) {
+          await fsp.rm(f + ".old", { force: true }).catch(() => { });
+          await fsp.rename(f, f + ".old").catch(() => { });
+        }
+        await fsp.appendFile(f, chunk);
+      } catch { }
+    }
+  } finally {
+    diagFlushing = false;
+    if (diagBuf && !diagTimer) {
+      diagTimer = setTimeout(() => { diagTimer = null; flushDiagAsync(); }, 400);
+      if (diagTimer && typeof diagTimer.unref === "function") diagTimer.unref();
+    }
+  }
+}
+function flushDiagSync() {
+  if (!diagBuf) return;
+  const chunk = diagBuf;
+  diagBuf = "";
+  for (const f of DIAG_FILES) {
+    try { fs.appendFileSync(f, chunk); } catch { }
+  }
+}
+try { app.on("before-quit", flushDiagSync); } catch { }
 function diagWrite(obj) {
   if (diagCount++ > 2000) return;
   let line;
   try { line = new Date().toISOString() + " " + (typeof obj === "string" ? obj : JSON.stringify(obj)) + "\n"; } catch { return; }
-  for (const f of DIAG_FILES) {
-    try {
-      try { if (fs.statSync(f).size > 4 * 1024 * 1024) { try { fs.rmSync(f + ".old", { force: true }); } catch { } fs.renameSync(f, f + ".old"); } } catch { }
-      fs.appendFileSync(f, line);
-    } catch { }
+  diagBuf += line;
+  if (!diagTimer) {
+    diagTimer = setTimeout(() => { diagTimer = null; flushDiagAsync(); }, 400);
+    if (diagTimer && typeof diagTimer.unref === "function") diagTimer.unref();
   }
 }
 const fmt = (a) => a.map((x) => x instanceof Error ? (x.stack || x.message) : typeof x === "string" ? x : (() => { try { return JSON.stringify(x); } catch { return String(x); } })()).join(" ");
@@ -1422,7 +1457,7 @@ function applyTitleBar(win) {
   try {
     if (!win || win.isDestroyed() || typeof win.setTitleBarOverlay !== "function") return;
     const tg = tbTarget(), o = tbOrig.get(win);
-    if (tg) { const ov = { __agywe: true, ...tg, ...(o && o.height ? { height: o.height } : {}) }; win.setTitleBarOverlay(ov); tbTouched.add(win); tbDiag(`窗口 ${win.id} → ${JSON.stringify(tg)}`); }
+    if (tg) { const ov = { __agywe: true, ...tg, height: (o && o.height) ? o.height : 30 }; win.setTitleBarOverlay(ov); tbTouched.add(win); tbDiag(`窗口 ${win.id} → ${JSON.stringify(tg)}`); }
     else if (tbTouched.has(win) && o && o.color) { win.setTitleBarOverlay({ __agywe: true, color: o.color, ...(o.symbolColor ? { symbolColor: o.symbolColor } : {}), ...(o.height ? { height: o.height } : {}) }); tbTouched.delete(win); tbDiag(`窗口 ${win.id} 还原 ${o.color}`); }
   } catch (e) { tbDiag(`窗口设置失败：${e && e.message || e}`); }
 }
@@ -2311,6 +2346,67 @@ try {
   ipcMain.handle("agywe:buddy-info", () => { try { return buddyInfo(); } catch (e) { return { kind: "none", error: String(e && e.message || e) }; } });
 } catch (e) { warn("usage ipc failed", e); }
 try { ipcMain.handle("agywe:sys", () => { try { return sysUsage(); } catch (e) { return { error: String(e && e.message || e) }; } }); } catch (e) { warn("sys ipc failed", e); }
+// v0.13.1 窗口顶栏拖动与双击最大化兜底：当 Windows/Electron 原生 -webkit-app-region: drag 因透明层/iframe 偶发失效时自动接管
+try {
+  const winDrag = new WeakMap();
+  const stopDrag = (win) => {
+    const st = winDrag.get(win);
+    if (st && st.timer) { clearInterval(st.timer); st.timer = null; }
+    winDrag.delete(win);
+  };
+  const stepDrag = (win) => {
+    const st = winDrag.get(win);
+    if (!st || !win || win.isDestroyed()) { stopDrag(win); return; }
+    if (Date.now() - st.t0 > 30000) { stopDrag(win); return; }
+    const pt = screen.getCursorScreenPoint();
+    if (pt.x === st.lx && pt.y === st.ly) return;
+    st.lx = pt.x; st.ly = pt.y;
+    const dx = pt.x - st.sx, dy = pt.y - st.sy;
+    if (st.max) {
+      if (Math.hypot(dx, dy) < 6) return;
+      win.unmaximize();
+      const nb = win.getBounds();
+      const nx = Math.round(pt.x - nb.width * st.rx);
+      const ny = Math.round(pt.y - st.cy);
+      win.setBounds({ x: nx, y: ny, width: nb.width, height: nb.height });
+      st.sx = pt.x; st.sy = pt.y; st.bx = nx; st.by = ny; st.bw = nb.width; st.bh = nb.height; st.max = false;
+      return;
+    }
+    win.setBounds({ x: Math.round(st.bx + dx), y: Math.round(st.by + dy), width: st.bw, height: st.bh });
+  };
+  ipcMain.on("agywe:win-drag", (e, msg) => {
+    try {
+      const win = BrowserWindow.fromWebContents(e.sender);
+      if (!win || win.isDestroyed() || !msg || typeof msg !== "object") return;
+      if (msg.op === "toggle-max") {
+        stopDrag(win);
+        if (win.isMaximized()) win.unmaximize();
+        else if (win.isMaximizable()) win.maximize();
+        return;
+      }
+      if (msg.op === "start") {
+        stopDrag(win);
+        const pt = screen.getCursorScreenPoint();
+        const b = win.getBounds();
+        const rx = Math.max(0.08, Math.min(0.92, Number(msg.rx) || 0.5));
+        const cy = Math.max(6, Math.min(28, Number(msg.cy) || 14));
+        const st = { sx: pt.x, sy: pt.y, lx: pt.x, ly: pt.y, bx: b.x, by: b.y, bw: b.width, bh: b.height, max: win.isMaximized(), rx, cy, t0: Date.now(), timer: null };
+        st.timer = setInterval(() => { try { stepDrag(win); } catch { stopDrag(win); } }, 12);
+        winDrag.set(win, st);
+        win.once("blur", () => stopDrag(win));
+        win.once("closed", () => stopDrag(win));
+        return;
+      }
+      if (msg.op === "move") {
+        stepDrag(win);
+        return;
+      }
+      if (msg.op === "end") {
+        stopDrag(win);
+      }
+    } catch { }
+  });
+} catch (e) { warn("win-drag ipc failed", e); }
 
 async function handleRequestLogged(request) {
   let res;

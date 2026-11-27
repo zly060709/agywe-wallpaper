@@ -1,5 +1,18 @@
 # 更新记录
 
+## v0.13.1（窗口拖动彻底根治 + 设置/快速切换/日志性能优化）
+
+- **窗口拖动与双击最大化彻底根治（双保险架构）**：
+  - 修复顶栏外层容器（`data-agywe-glass="panel"`）仅靠移除内联样式仍被 `!important` CSS 规则挂回 `backdrop-filter` 的漏洞，新增 `data-agywe-draghost` 强制 `backdrop-filter: none !important`；
+  - 将 `#agywe-avatars` 会话头像浮层下移避开顶部 32px 系统标题栏，并让点击特效跳过顶栏热区，彻底消除顶层浮层对标题栏的遮挡；
+  - 保留 `setTitleBarOverlay` 默认高度（30px）；
+  - 新增主进程 + preload 协同窗口拖动/双击最大化兜底（`agywe:win-drag`，基于 `screen.getCursorScreenPoint()` + `win.setBounds()`）：原生 `-webkit-app-region: drag` 正常时不介入，一旦因透明壁纸层或 Top Layer 失效即自动无缝接管拖动与双击最大化/还原，并支持最大化状态下拖拽自动还原贴合鼠标。
+- **修复设置页 `/api/buddy-info` 与 `/api/usage-summary` 返回 403**：`settings.js` 的 `get()` 统一携带 `x-agywe-token` 请求头，恢复「挂件」页桌宠素材状态显示与「小组件」页用量统计读取。
+- **快速切换页（`quick.html` / `quick.js`）并发与随机越界修复**：接入 `savequeue.js` 串行化切换与 80ms 收藏防抖；新增 `sliceWindow()` 在壁纸库超过 600 项随机抽中靠后条目时将其置顶入窗，防止选中态回退。
+- **设置页壁纸库（`settings.js`）大规模列表提速**：`renderGrid()` 改为首屏 120 项切片 + `IntersectionObserver` 滚动增量挂载；点击收藏与切换当前壁纸改为原地切换 `.on` / `.cur` 类名，消除卡顿与滚动条跳动。
+- **壁纸加载与诊断日志优化**：`wall.js` 视频超时/失败时彻底释放 `<video>` 节点并改用 `readyState >= 2` 立即触发首帧取色；`hook.js` 的 `diagWrite()` 改为 400ms 内存缓冲异步批量刷盘（退出前同步兜底），消除主进程同步磁盘 I/O 阻塞。
+- **测试补全**：`test/smoke.cjs` 扩充至 18 项断言，覆盖 `quick.html` 脚本顺序、750 项随机置顶与保存队列合并、窗口拖动双保险与异步刷盘。
+
 ## v0.13.0（桌宠 14B 旗舰全套重制 + 界面可读性 / 汉化 / 性能全面升级）
 
 - **内置桌宠 18 段动画像素级全套重制**：
