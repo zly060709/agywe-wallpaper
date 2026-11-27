@@ -8,7 +8,7 @@
   let cfg = null;
   let lib = { items: [], paths: {} };
 
-  const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store" }); return r.json(); };
+  const get = async (p) => { const r = await fetch("/api/" + p, { cache: "no-store", headers: { "x-agywe-token": TOKEN } }); return r.json(); };
   // v0.11.1：请求失败时不再把错误内容当结果用——返回 { ok:false, error, status }，调用方按字段判断
   const post = async (p, body, method = "POST") => {
     const r = await fetch("/api/" + p, { method, headers: { "Content-Type": "application/json", "x-agywe-token": TOKEN }, body: JSON.stringify(body || {}) });
@@ -495,7 +495,7 @@
   async function renderBuddy() {
     const el = $("#buddySrc"); if (!el || Date.now() < buddyMsgUntil) return;
     let i = null; try { i = await get("buddy-info"); } catch { }
-    if (!i) { el.textContent = ""; return; }
+    if (!i || i.error) { el.textContent = ""; return; }
     const clips = Array.isArray(i.clips) ? i.clips : [];
     el.textContent = i.kind === "none" ? "⚠ 没找到素材：插件文件夹里自带的 buddy 文件夹不见了（重新解压一份），或者选一个素材文件夹" : "正在用：" + (BUDDY_SRC[i.kind] || i.kind || "本地") + "（" + clips.length + " 个动作）" + " · " + (i.dir || "");
     el.title = clips.join("、");
